@@ -12,7 +12,20 @@
           "package_name": "com.example.calorie_tracker_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "198083572394-28tm509pu252nuhc7kmebtl82akg2o61.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.calorie_tracker_app",
+            "certificate_hash": "3ba1ae286a64b28e9138b2a0cd0c381beb38d941"
+          }
+        },
+        {
+          "client_id": "198083572394-je86skdngeit1fuhu70supvd0ved31rr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBY3MfzxW3Z1ZFl3UKnhXaF66mdj4jEz4c"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "198083572394-je86skdngeit1fuhu70supvd0ved31rr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "198083572394-hrbq3jujcrq4cif3ad9ihjl28frukmek.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.calorieTrackerApp"
+              }
+            }
+          ]
         }
       }
     }
