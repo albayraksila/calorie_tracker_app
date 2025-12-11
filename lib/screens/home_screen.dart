@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'profile_setup_screen.dart';
+import 'profile_details_screen.dart'; // ✅ yeni ekranı kullanacağız
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const ProfileSetupScreen(),
+                  builder: (_) => const ProfileDetailsScreen(), // ✅ Profil Bilgilerim
                 ),
               );
             },
