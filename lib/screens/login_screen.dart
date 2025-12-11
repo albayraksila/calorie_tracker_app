@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import 'home_screen.dart';
+import 'profile_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,6 +32,30 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Giriş / kayıt BAŞARILI olduktan sonra ortak akış:
+  /// 1) Firestore'dan profil tamam mı diye bak
+  /// 2) Tamamsa -> HomeScreen
+  /// 3) Değilse -> ProfileSetupScreen (zorunlu)
+  Future<void> _afterAuthSuccess(BuildContext context) async {
+    final isCompleted = await ProfileService().isProfileCompleted();
+
+    if (!mounted) return;
+
+    if (isCompleted) {
+      // Profil hazır -> direkt Home
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } else {
+      // Profil yok / eksik -> zorunlu profil ekranı
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _submitEmailPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -53,9 +79,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (user != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        // ❌ Eskiden: direkt HomeScreen'e gidiyorduk
+        // Navigator.of(context).pushReplacement(
+        //   MaterialPageRoute(builder: (_) => const HomeScreen()),
+        // );
+
+        // ✅ Artık: önce profil tamam mı diye kontrol et
+        await _afterAuthSuccess(context);
       }
     } on FirebaseAuthException catch (e) {
       String message = 'Bir hata oluştu.';
@@ -95,9 +125,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final user = await _authService.signInWithGoogle();
       if (user != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        // ❌ Eskiden: direkt HomeScreen'e gidiyorduk
+        // Navigator.of(context).pushReplacement(
+        //   MaterialPageRoute(builder: (_) => const HomeScreen()),
+        // );
+
+        // ✅ Artık: önce profil tamam mı diye kontrol et
+        await _afterAuthSuccess(context);
       }
     } catch (e) {
       setState(() {
