@@ -6,6 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 
+// ⭐ Yeni eklediklerimiz
+import 'theme/app_theme.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -13,27 +16,29 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 🧪 ÖDEV / TEST İÇİN:
-  // Uygulama HER açıldığında kullanıcıyı çıkış yap.
-  // Böylece ilk açılan ekran her zaman LoginScreen olur.
+  // 🧪 ÖDEV / TEST: Uygulama HER açıldığında logout
   await FirebaseAuth.instance.signOut();
 
-  runApp(const CalorieTrackerApp());
+  runApp(const CaloriSenseApp());
 }
 
-class CalorieTrackerApp extends StatelessWidget {
-  const CalorieTrackerApp({super.key});
+class CaloriSenseApp extends StatelessWidget {
+  const CaloriSenseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Calorie Tracker',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-      ),
+      title: 'CaloriSense',
       debugShowCheckedModeBanner: false,
-      home: const LoginScreen(), // 👉 Açılışta her zaman LoginScreen
+
+      // ⭐ Burada tema yapımızı giydiriyoruz:
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+
+      // ⭐ Kullanıcıya tema seçtirmiyoruz → ödevin istediği
+      themeMode: ThemeMode.system,
+
+      home: const LoginScreen(),
     );
   }
 }

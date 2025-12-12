@@ -5,61 +5,130 @@ import '../services/profile_service.dart';
 import '../models/user_profile.dart';
 import 'profile_setup_screen.dart';
 
+// 🎨 Tasarım widget'ları
+import '../widgets/app_background.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/pastel_button.dart';
+
 class ProfileDetailsScreen extends StatelessWidget {
   const ProfileDetailsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text("Profil Bilgilerim")),
-      body: FutureBuilder<UserProfile?>(
-        future: ProfileService().getProfile(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: AppBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: FutureBuilder<UserProfile?>(
+                future: ProfileService().getProfile(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text("Bir hata oluştu: ${snapshot.error}"),
-            );
-          }
-
-          final profile = snapshot.data;
-
-          if (profile == null) {
-            return const Center(
-              child: Text("Profil bulunamadı. Lütfen profilinizi doldurun."),
-            );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Ad: ${profile.name}"),
-                Text("Yaş: ${profile.age}"),
-                Text("Boy: ${profile.heightCm} cm"),
-                Text("Kilo: ${profile.weightKg} kg"),
-                Text("Hedef Günlük Kalori: ${profile.targetDailyCalories}"),
-                Text("Profil Tamamlandı: ${profile.isProfileCompleted ? "Evet" : "Hayır"}"),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileSetupScreen(), // düzenleme için aynı form
+                  if (snapshot.hasError) {
+                    return GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Bir hata oluştu",
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "${snapshot.error}",
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
                     );
-                  },
-                  icon: const Icon(Icons.edit),
-                  label: const Text("Düzenle"),
-                ),
-              ],
+                  }
+
+                  final profile = snapshot.data;
+
+                  if (profile == null) {
+                    return GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Profil bulunamadı",
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Profil bilgilerin bulunamadı. Lütfen profilini doldur.",
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          PastelButton(
+                            text: "Profilimi doldur",
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ProfileSetupScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // ✅ Profil bulunduğu durum
+                  return GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Profil Bilgilerin",
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text("Ad: ${profile.name}"),
+                        Text("Yaş: ${profile.age}"),
+                        Text("Boy: ${profile.heightCm} cm"),
+                        Text("Kilo: ${profile.weightKg} kg"),
+                        Text("Hedef Günlük Kalori: ${profile.targetDailyCalories}"),
+                        Text(
+                          "Profil Tamamlandı: ${profile.isProfileCompleted ? "Evet" : "Hayır"}",
+                        ),
+                        const SizedBox(height: 24),
+                        PastelButton(
+                          text: "Düzenle",
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ProfileSetupScreen(), // düzenleme için aynı form
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

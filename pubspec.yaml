@@ -1,5 +1,6 @@
-name: calorie_tracker_app
-description: "A new Flutter project."
+name: calorisense
+description: CaloriSense_ Yapay zeka destekli akilli kalori takip uygulaması
+
 publish_to: 'none'
 
 version: 1.0.0+1
