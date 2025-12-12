@@ -7,8 +7,10 @@ import 'home_screen.dart';
 
 // 🎨 Tasarım widget'ları
 import '../widgets/app_background.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/glass_card_old.dart';
 import '../widgets/pastel_button.dart';
+import '../widgets/glass_app_bar.dart';
+
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -42,9 +44,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text("Profil Bilgileri"),
-      ),
+  appBar: const GlassAppBar(
+    title: "Profil Bilgileri",
+  ),
       body: AppBackground(
         child: Center(
           child: SingleChildScrollView(

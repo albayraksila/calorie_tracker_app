@@ -247,6 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         .titleLarge
                                         ?.copyWith(
                                           fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF2E6F5E), // 🌿 koyu mint / tema uyumlu
                                         ),
                                   ),
                                   const SizedBox(height: 16),

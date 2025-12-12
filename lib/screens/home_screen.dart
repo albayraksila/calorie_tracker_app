@@ -1,15 +1,21 @@
 // lib/screens/home_screen.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'profile_details_screen.dart'; // ✅ Profil ekranı
+import 'profile_details_screen.dart';
 
-// 🎨 Yeni eklediğimiz tasarım widget'ları
+// 🎨 Tasarım widget'ları
 import '../widgets/app_background.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/glass_card_old.dart';
 import '../widgets/pastel_button.dart';
+import '../widgets/glass_app_bar.dart';
+
+
+
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -22,37 +28,33 @@ class HomeScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      // 🎨 Arka planı Flutter temasına bırakmıyoruz, kendi gradientimizi kullanacağız
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        // İstersen sonra burayı 'CaloriSense - Home' yaparız,
-        // şu an senin istediğin gibi diğer her şey aynen kalsın.
-        title: const Text('Calorie Tracker - Home'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ProfileDetailsScreen(), // ✅ Profil Bilgilerim
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authService.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
-        ],
-      ),
+      appBar: GlassAppBar(
+  title: 'CaloriSense - Home',
+  actions: [
+    IconButton(
+      icon: const Icon(Icons.person),
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ProfileDetailsScreen()),
+        );
+      },
+    ),
+    IconButton(
+      icon: const Icon(Icons.logout),
+      onPressed: () async {
+        await authService.signOut();
+        if (context.mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      },
+    ),
+  ],
+),
+
+
       body: AppBackground(
         child: Center(
           child: SingleChildScrollView(
@@ -62,7 +64,6 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Üstte hoş geldin mesajı
                   Text(
                     'Hoş geldin, ${user?.email ?? "kullanıcı"}!',
                     textAlign: TextAlign.center,
@@ -81,7 +82,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // 🧊 Glassmorphism kart: günlük özet (şimdilik placeholder)
+                  // 🧊 Günlük durum kartı
                   GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,7 +96,6 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          // TODO: Gerçek verilerle doldurulacak
                           'Alınan kalori: 0 kcal\n'
                           'Hedef: 0 kcal\n'
                           'Kalan: 0 kcal',
@@ -106,7 +106,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // 🧊 Glassmorphism kart: hızlı aksiyonlar
+                  // 🧊 Hızlı aksiyonlar kartı
                   GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,8 +119,6 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-
-                        // 🎨 Pastel buton: ileride "Yemek ekle" gibi aksiyonlar için
                         PastelButton(
                           text: 'Yemek ekle',
                           onPressed: () {
@@ -128,8 +126,6 @@ class HomeScreen extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 8),
-
-                        // Profil & hedef düzenleme (şimdilik profil detayları ekranına gitsin istersen)
                         OutlinedButton(
                           onPressed: () {
                             Navigator.of(context).push(
@@ -139,8 +135,7 @@ class HomeScreen extends StatelessWidget {
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                isDark ? Colors.white : Colors.black87,
+                            foregroundColor: isDark ? Colors.white : Colors.black87,
                             side: BorderSide(
                               color: Colors.white.withOpacity(0.5),
                             ),
@@ -148,8 +143,9 @@ class HomeScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(18),
                             ),
                           ),
-                          child:
-                              const Text('Profil & hedef bilgilerini görüntüle'),
+                          child: const Text(
+                            'Profil & hedef bilgilerini görüntüle',
+                          ),
                         ),
                       ],
                     ),

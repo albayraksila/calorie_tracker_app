@@ -7,8 +7,9 @@ import 'profile_setup_screen.dart';
 
 // 🎨 Tasarım widget'ları
 import '../widgets/app_background.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/glass_card_old.dart';
 import '../widgets/pastel_button.dart';
+import '../widgets/glass_app_bar.dart';
 
 class ProfileDetailsScreen extends StatelessWidget {
   const ProfileDetailsScreen({super.key});
@@ -19,11 +20,19 @@ class ProfileDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text("Profil Bilgilerim")),
+
+      // ✅ AppBar arkasında arka plan görünsün (cam efekt için şart)
+      extendBodyBehindAppBar: true,
+
+      appBar: const GlassAppBar(
+        title: "Profil Bilgilerim",
+      ),
+
       body: AppBackground(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            // ✅ AppBar’ın üstüne binmesin diye tek sefer üst padding
+            padding: const EdgeInsets.fromLTRB(24, kToolbarHeight + 32, 24, 16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: FutureBuilder<UserProfile?>(
@@ -90,7 +99,6 @@ class ProfileDetailsScreen extends StatelessWidget {
                     );
                   }
 
-                  // ✅ Profil bulunduğu durum
                   return GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,7 +116,7 @@ class ProfileDetailsScreen extends StatelessWidget {
                         Text("Kilo: ${profile.weightKg} kg"),
                         Text("Hedef Günlük Kalori: ${profile.targetDailyCalories}"),
                         Text(
-                          "Profil Tamamlandı: ${profile.isProfileCompleted ? "Evet" : "Hayır"}",
+                          'Profil Tamamlandı: ${profile.isProfileCompleted ? "Evet" : "Hayır"}',
                         ),
                         const SizedBox(height: 24),
                         PastelButton(
@@ -116,7 +124,7 @@ class ProfileDetailsScreen extends StatelessWidget {
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const ProfileSetupScreen(), // düzenleme için aynı form
+                                builder: (_) => const ProfileSetupScreen(),
                               ),
                             );
                           },
