@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import 'home_screen.dart';
 import 'profile_setup_screen.dart';
+import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,7 +22,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
+ 
+  
+  bool _isFormValid = false;
+  bool _obscurePassword = true;
   bool _isLoginMode = true; // true -> giriş, false -> kayıt
   bool _isLoading = false;
   String? _errorText;
@@ -160,8 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
@@ -208,8 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: BackdropFilter(
-                          filter:
-                              ImageFilter.blur(sigmaX: 18.0, sigmaY: 18.0),
+                          filter: ImageFilter.blur(sigmaX: 18.0, sigmaY: 18.0),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -235,6 +237,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Form(
                               key: _formKey,
+                              onChanged: () {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (isValid != _isFormValid) {
+      setState(() => _isFormValid = isValid);
+    }
+    },
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 mainAxisSize: MainAxisSize.min,
@@ -247,15 +255,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                         .titleLarge
                                         ?.copyWith(
                                           fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF2E6F5E), // 🌿 koyu mint / tema uyumlu
+                                          color: const Color(0xFF2E6F5E),
                                         ),
                                   ),
                                   const SizedBox(height: 16),
 
                                   if (_errorText != null)
                                     Container(
-                                      margin:
-                                          const EdgeInsets.only(bottom: 12),
+                                      margin: const EdgeInsets.only(bottom: 12),
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
                                         color: Colors.red.shade50
@@ -271,61 +278,52 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
 
+                                  // ✅ SADECE BU ALAN GÜNCELLENDİ (validator + autovalidateMode)
                                   TextFormField(
                                     controller: _emailController,
                                     decoration: const InputDecoration(
                                       labelText: 'Email',
-                                      prefixIcon:
-                                          Icon(Icons.email_outlined),
+                                      prefixIcon: Icon(Icons.email_outlined),
                                     ),
-                                    keyboardType:
-                                        TextInputType.emailAddress,
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Email gir.';
-                                      }
-                                      if (!value.contains('@')) {
-                                        return 'Geçerli bir email gir.';
-                                      }
-                                      return null;
-                                    },
+                                    keyboardType: TextInputType.emailAddress,
+                                    validator: Validators.email,
+                                    autovalidateMode:
+                                        AutovalidateMode.onUserInteraction,
                                   ),
                                   const SizedBox(height: 12),
+
+                                  // ✅ SADECE BU ALAN GÜNCELLENDİ (validator + autovalidateMode)
                                   TextFormField(
-                                    controller: _passwordController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Şifre',
-                                      prefixIcon:
-                                          Icon(Icons.lock_outline),
-                                    ),
-                                    obscureText: true,
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Şifre gir.';
-                                      }
-                                      if (value.trim().length < 6) {
-                                        return 'Şifre en az 6 karakter olmalı.';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
+  controller: _passwordController,
+  decoration: InputDecoration(
+    labelText: 'Şifre',
+    prefixIcon: const Icon(Icons.lock_outline),
+    suffixIcon: IconButton(
+      onPressed: () {
+        setState(() => _obscurePassword = !_obscurePassword);
+      },
+      icon: Icon(
+        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+      ),
+      tooltip: _obscurePassword ? 'Şifreyi göster' : 'Şifreyi gizle',
+    ),
+  ),
+  obscureText: _obscurePassword,
+  validator: Validators.password,
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+),
+
 
                                   // 🎨 Pastel primary buton (soft shadow)
                                   SizedBox(
                                     height: 48,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFFA3E4A6),
-                                        foregroundColor:
-                                            const Color(0xFF114432),
+                                        backgroundColor: const Color(0xFFA3E4A6),
+                                        foregroundColor: const Color(0xFF114432),
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(20),
                                         ),
                                       ).merge(
                                         ButtonStyle(
@@ -333,8 +331,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                               MaterialStateProperty.all(
                                             Colors.black.withOpacity(0.18),
                                           ),
-                                          elevation: MaterialStateProperty
-                                              .resolveWith((states) {
+                                          elevation:
+                                              MaterialStateProperty.resolveWith(
+                                                  (states) {
                                             if (states.contains(
                                                 MaterialState.pressed)) {
                                               return 2;
@@ -343,15 +342,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           }),
                                         ),
                                       ),
-                                      onPressed: _isLoading
+                                      onPressed: (!_isFormValid ||_isLoading)
                                           ? null
                                           : _submitEmailPassword,
                                       child: _isLoading
                                           ? const SizedBox(
                                               height: 20,
                                               width: 20,
-                                              child:
-                                                  CircularProgressIndicator(
+                                              child: CircularProgressIndicator(
                                                 strokeWidth: 2,
                                               ),
                                             )
@@ -392,18 +390,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                         backgroundColor: isDark
                                             ? const Color(0xFF2C2C2C)
                                             : Colors.white,
-                                        foregroundColor: isDark
-                                            ? Colors.white
-                                            : Colors.black87,
+                                        foregroundColor:
+                                            isDark ? Colors.white : Colors.black87,
                                         elevation: isDark ? 2 : 4,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(18),
+                                          borderRadius: BorderRadius.circular(18),
                                         ),
                                       ),
-                                      onPressed: _isLoading
-                                          ? null
-                                          : _handleGoogleSignIn,
+                                      onPressed:
+                                          _isLoading ? null : _handleGoogleSignIn,
                                       icon: const Icon(Icons.login),
                                       label: const Text('Google ile devam et'),
                                     ),
