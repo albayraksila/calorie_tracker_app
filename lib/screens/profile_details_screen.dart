@@ -51,7 +51,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
       return true;
     }
 
-    return ok(p[kAge]) &&
+    // ✅ NAME EKLENDİ
+    return ok(p[kName]) &&
+        ok(p[kAge]) &&
         ok(p[kHeightCm]) &&
         ok(p[kWeightKg]) &&
         ok(p[kTargetDailyCalories]);
@@ -94,6 +96,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
               child: const Text("İptal"),
             ),
             ElevatedButton(
+              
               onPressed: saving
                   ? null
                   : () async {
@@ -111,14 +114,16 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           value: value,
                         );
 
-                        // ✅ required alanlar tamamlandıysa flag true
+                        // ✅ FLAG HER ZAMAN GÜNCELLENSİN (true/false)
                         final latest = await _service.getProfile();
                         final m = latest?.toMap() ?? {};
-                        if (_requiredFieldsAreComplete(m) &&
-                            (m[kIsProfileCompleted] != true)) {
+
+                        final completed = _requiredFieldsAreComplete(m);
+
+                        if (m[kIsProfileCompleted] != completed) {
                           await _service.upsertProfileField(
                             field: kIsProfileCompleted,
-                            value: true,
+                            value: completed,
                           );
                         }
 
@@ -172,6 +177,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
 
       // ✅ AppBar arkasında arka plan görünsün (cam efekt için şart)
       extendBodyBehindAppBar: true,
@@ -373,8 +379,6 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         const SizedBox(height: 24),
 
-                        // ✅ Bu butonu kaldırmıyorum (tasarım/akış bozulmasın)
-                        // İstersen bunu "Gelişmiş Düzenle" gibi kullanabilirsin.
                         PastelButton(
                           text: "Düzenle",
                           onPressed: () {

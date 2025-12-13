@@ -38,132 +38,156 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.dispose();
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-  appBar: const GlassAppBar(
-    title: "Profil Bilgileri",
-  ),
+      extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: true, // ✅ EKLENDİ
+      appBar: const GlassAppBar(title: "Profil Oluşturma"),
       body: AppBackground(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Seni biraz tanıyalım',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Profil bilgilerin, CaloriSense’in sana uygun günlük kalori hedefi belirlemesine yardımcı olur.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  // ✅ ÜST KISIM SCROLL
+                  Expanded(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 24),
+                          Text(
+                            'Seni biraz tanıyalım',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Profil bilgilerin, CaloriSense’in sana uygun günlük kalori hedefi belirlemesine yardımcı olur.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
 
-                  GlassCard(
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: nameCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "Ad",
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: ageCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "Yaş",
-                            prefixIcon: Icon(Icons.cake_outlined),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: heightCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "Boy (cm)",
-                            prefixIcon: Icon(Icons.height),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: weightCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "Kilo (kg)",
-                            prefixIcon: Icon(Icons.monitor_weight_outlined),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: calorieCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "Hedef Günlük Kalori",
-                            prefixIcon: Icon(Icons.local_fire_department),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 24),
-
-                        _saving
-                            ? const Center(
-                                child: SizedBox(
-                                  height: 32,
-                                  width: 32,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                          GlassCard(
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: nameCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Ad",
+                                    prefixIcon: Icon(Icons.person_outline),
+                                  ),
                                 ),
-                              )
-                            : PastelButton(
-                                text: "Kaydet ve Devam Et",
-                                onPressed: () async {
-                                  setState(() => _saving = true);
+                                const SizedBox(height: 16),
+                                TextField(
+                                  controller: ageCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Yaş",
+                                    prefixIcon: Icon(Icons.cake_outlined),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: heightCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Boy (cm)",
+                                    prefixIcon: Icon(Icons.height),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: weightCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Kilo (kg)",
+                                    prefixIcon:
+                                        Icon(Icons.monitor_weight_outlined),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: calorieCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: "Hedef Günlük Kalori",
+                                    prefixIcon:
+                                        Icon(Icons.local_fire_department),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                          ),
 
-                                  final profile = UserProfile(
-                                    name: nameCtrl.text.trim(),
-                                    age: int.tryParse(ageCtrl.text) ?? 0,
-                                    heightCm: int.tryParse(heightCtrl.text) ?? 0,
-                                    weightKg:
-                                        double.tryParse(weightCtrl.text) ?? 0,
-                                    targetDailyCalories:
-                                        int.tryParse(calorieCtrl.text) ?? 0,
-                                    isProfileCompleted: true,
-                                  );
-
-                                  await ProfileService().saveProfile(profile);
-
-                                  if (!mounted) return;
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const HomeScreen(),
-                                    ),
-                                  );
-
-                                  if (mounted) {
-                                    setState(() => _saving = false);
-                                  }
-                                },
-                              ),
-                      ],
+                          const SizedBox(height: 16),
+                        ],
+                      ),
                     ),
                   ),
+
+                  // ✅ ALT: SABİT BUTON (Overflow biter)
+                  _saving
+                      ? const Center(
+                          child: SizedBox(
+                            height: 32,
+                            width: 32,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Padding(
+                          padding: EdgeInsets.only(
+                            top: 8,
+                            bottom: 8 + MediaQuery.of(context).viewPadding.bottom,
+                          ),
+                          child: PastelButton(
+                            text: "Kaydet ve Devam Et",
+                            onPressed: () async {
+                              setState(() => _saving = true);
+
+                              final profile = UserProfile(
+                                name: nameCtrl.text.trim(),
+                                age: int.tryParse(ageCtrl.text) ?? 0,
+                                heightCm: int.tryParse(heightCtrl.text) ?? 0,
+                                weightKg:
+                                    double.tryParse(weightCtrl.text) ?? 0,
+                                targetDailyCalories:
+                                    int.tryParse(calorieCtrl.text) ?? 0,
+                                isProfileCompleted: true,
+                              );
+
+                              await ProfileService().saveProfile(profile);
+
+                              if (!mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const HomeScreen(),
+                                ),
+                              );
+
+                              if (mounted) {
+                                setState(() => _saving = false);
+                              }
+                            },
+                          ),
+                        ),
                 ],
               ),
             ),

@@ -87,23 +87,51 @@ class _LoginScreenState extends State<LoginScreen> {
         await _afterAuthSuccess(context);
       }
     } on FirebaseAuthException catch (e) {
-      String message = 'Bir hata oluştu.';
+  String message = 'Bir hata oluştu.';
 
-      if (e.code == 'user-not-found') {
-        message = 'Bu email ile kayıtlı kullanıcı bulunamadı.';
-      } else if (e.code == 'wrong-password') {
-        message = 'Şifre yanlış.';
-      } else if (e.code == 'email-already-in-use') {
-        message = 'Bu email zaten kayıtlı.';
-      } else if (e.code == 'weak-password') {
-        message = 'Şifre çok zayıf (en az 6 karakter).';
-      } else if (e.code == 'invalid-email') {
-        message = 'Geçerli bir email adresi gir.';
-      }
+  switch (e.code) {
+    case 'user-not-found':
+      message = 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.';
+      break;
 
-      setState(() {
-        _errorText = message;
-      });
+    case 'wrong-password':
+      message = 'Şifre yanlış.';
+      break;
+
+    // ✅ Yeni Firebase sürümlerinde yanlış şifre / yanlış hesap için sık gelir
+    case 'invalid-credential':
+    case 'INVALID_LOGIN_CREDENTIALS':
+      message = 'E-posta veya şifre hatalı.';
+      break;
+
+    case 'user-disabled':
+      message = 'Bu hesap devre dışı bırakılmış.';
+      break;
+
+    case 'too-many-requests':
+      message = 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin.';
+      break;
+
+    case 'email-already-in-use':
+      message = 'Bu e-posta zaten kayıtlı.';
+      break;
+
+    case 'weak-password':
+      message = 'Şifre çok zayıf (en az 6 karakter).';
+      break;
+
+    case 'invalid-email':
+      message = 'Geçerli bir e-posta adresi gir.';
+      break;
+
+    default:
+      message = 'Giriş başarısız: ${e.message ?? e.code}';
+  }
+
+  setState(() {
+    _errorText = message;
+  });
+
     } catch (e) {
       setState(() {
         _errorText = 'Beklenmeyen bir hata oluştu: $e';
