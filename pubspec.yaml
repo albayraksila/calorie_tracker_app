@@ -1,7 +1,6 @@
 name: calorisense
 description: CaloriSense_ Yapay zeka destekli akilli kalori takip uygulaması
-
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -21,11 +20,38 @@ dependencies:
   google_sign_in: ^6.2.1
 
   cupertino_icons: ^1.0.8
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon_1024.png"
+
+  adaptive_icon_background: "#BFE6DA"   # ya da senin aurora paletinden bir renk
+  adaptive_icon_foreground: "assets/icon/app_icon_1024.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/app_icon_1024.png
+    - assets/splash/splash_gradient.png
+
+flutter_native_splash:
+  android: true
+  ios: true
+
+  color: "#EAF4F1"
+  image: assets/splash/splash_logo.png
+
+  android_12:
+    color: "#EAF4F1"
+    image: assets/splash/splash_logo.png
+
+  
+

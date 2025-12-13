@@ -258,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           color: const Color(0xFF2E6F5E),
                                         ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 20),
 
                                   if (_errorText != null)
                                     Container(
@@ -313,6 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
   autovalidateMode: AutovalidateMode.onUserInteraction,
 ),
 
+const SizedBox(height: 16), // 👈 BOŞLUK
 
                                   // 🎨 Pastel primary buton (soft shadow)
                                   SizedBox(
