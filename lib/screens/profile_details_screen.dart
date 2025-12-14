@@ -22,7 +22,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
   final _service = ProfileService();
   late Future<UserProfile?> _future;
 
-  // ✅ Firestore alan isimleri (gerekirse sadece burayı düzeltiriz)
+  // ✅ Firestore alan isimleri
   static const String kName = 'name';
   static const String kAge = 'age';
   static const String kHeightCm = 'height_cm';
@@ -42,21 +42,16 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     });
   }
 
-  // ✅ required alanlar tamam mı? (boş/0 olmasın)
-  bool _requiredFieldsAreComplete(Map<String, dynamic> p) {
-    bool ok(dynamic v) {
-      if (v == null) return false;
-      if (v is String) return v.trim().isNotEmpty;
-      if (v is num) return v != 0;
-      return true;
-    }
+  // ✅ required alanlar tamam mı? (model üzerinden güvenli kontrol)
+  bool _isCompleteFromModel(UserProfile p) {
+    bool okString(String? v) => v != null && v.trim().isNotEmpty;
+    bool okNum(num? v) => v != null && v > 0;
 
-    // ✅ NAME EKLENDİ
-    return ok(p[kName]) &&
-        ok(p[kAge]) &&
-        ok(p[kHeightCm]) &&
-        ok(p[kWeightKg]) &&
-        ok(p[kTargetDailyCalories]);
+    return okString(p.name) &&
+        okNum(p.age) &&
+        okNum(p.heightCm) &&
+        okNum(p.weightKg) &&
+        okNum(p.targetDailyCalories);
   }
 
   Future<void> _editField({
@@ -96,7 +91,6 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
               child: const Text("İptal"),
             ),
             ElevatedButton(
-              
               onPressed: saving
                   ? null
                   : () async {
@@ -114,13 +108,11 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           value: value,
                         );
 
-                        // ✅ FLAG HER ZAMAN GÜNCELLENSİN (true/false)
+                        // ✅ flag'i HER ZAMAN model üzerinden hesaplayıp yaz
                         final latest = await _service.getProfile();
-                        final m = latest?.toMap() ?? {};
+                        if (latest != null) {
+                          final completed = _isCompleteFromModel(latest);
 
-                        final completed = _requiredFieldsAreComplete(m);
-
-                        if (m[kIsProfileCompleted] != completed) {
                           await _service.upsertProfileField(
                             field: kIsProfileCompleted,
                             value: completed,
@@ -149,7 +141,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     );
 
     if (saved == true) {
-      _refresh(); // ✅ ekrana yeni veriyi çek
+      _refresh();
     }
   }
 
@@ -158,7 +150,6 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     required String text,
     required VoidCallback onEdit,
   }) {
-    // Tasarımı bozmamak için: aynı Text + en sağda küçük edit ikonu
     return Row(
       children: [
         Expanded(child: Text(text)),
@@ -178,18 +169,13 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: true,
-
-      // ✅ AppBar arkasında arka plan görünsün (cam efekt için şart)
       extendBodyBehindAppBar: true,
-
       appBar: const GlassAppBar(
         title: "Profil Bilgilerim",
       ),
-
       body: AppBackground(
         child: Center(
           child: SingleChildScrollView(
-            // ✅ AppBar’ın üstüne binmesin diye tek sefer üst padding
             padding: const EdgeInsets.fromLTRB(24, kToolbarHeight + 32, 24, 16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
@@ -257,6 +243,8 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                     );
                   }
 
+                  final computedCompleted = _isCompleteFromModel(profile);
+
                   return GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,7 +257,6 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // ✅ Alan bazlı düzenleme (tasarımı bozmadan)
                         _lineWithEdit(
                           context: context,
                           text: "Ad: ${profile.name}",
@@ -339,7 +326,8 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                             title: "Kilo (kg)",
                             fieldKey: kWeightKg,
                             initialValue: (profile.weightKg).toString(),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(decimal: true),
                             validator: (v) {
                               final s = (v ?? "").trim();
                               if (s.isEmpty) return "Bu alan boş bırakılamaz";
@@ -348,7 +336,8 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                               if (n < 30 || n > 300) return "30-300 kg arası olmalı";
                               return null;
                             },
-                            parseValue: (raw) => double.parse(raw.replaceAll(",", ".")),
+                            parseValue: (raw) =>
+                                double.parse(raw.replaceAll(",", ".")),
                           ),
                         ),
 
@@ -374,7 +363,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                         ),
 
                         Text(
-                          'Profil Tamamlandı: ${profile.isProfileCompleted ? "Evet" : "Hayır"}',
+                          'Profil Tamamlandı: ${computedCompleted ? "Evet" : "Hayır"}',
                         ),
 
                         const SizedBox(height: 24),
