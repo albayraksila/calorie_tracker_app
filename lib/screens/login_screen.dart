@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import 'home_screen.dart';
 import 'profile_setup_screen.dart';
+import 'verify_email_screen.dart'; 
 import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -22,13 +23,93 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
- 
-  
+
   bool _isFormValid = false;
   bool _obscurePassword = true;
   bool _isLoginMode = true; // true -> giriş, false -> kayıt
   bool _isLoading = false;
   String? _errorText;
+  bool _emailTouched = false;
+bool _passwordTouched = false;
+
+String? _emailError;
+String? _passwordError;
+
+bool get _canSubmitLogin =>
+    Validators.email(_emailController.text.trim()) == null &&
+    Validators.password(_passwordController.text) == null;
+
+bool get _canSubmitRegister =>
+    Validators.email(_emailController.text.trim()) == null &&
+    Validators.password(_passwordController.text) == null;
+
+// Login mi register mı fark etmeksizin bu yeterli:
+bool get _canSubmit => _isLoginMode ? _canSubmitLogin : _canSubmitRegister;
+
+bool get _canForgotPassword =>
+    Validators.email(_emailController.text.trim()) == null;
+
+
+//Şifremi Unuttum
+Future<void> _forgotPassword() async {
+  final email = _emailController.text.trim();
+
+  // Email boşsa kullanıcıyı yönlendir
+  if (email.isEmpty) {
+    setState(() => _errorText = "Şifre sıfırlamak için önce e-posta adresi gerekli.");
+    return;
+  }
+
+  // Email formatı hatalıysa (senin validatorın varsa kullan)
+  final emailErr = Validators.email(email);
+  if (emailErr != null) {
+    setState(() => _errorText = emailErr);
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+    _errorText = null;
+  });
+
+  try {
+   await _authService.sendPasswordResetEmail(email);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Şifre sıfırlama e-postası gönderildi. Gelen kutunu kontrol etmeyi unutma."),
+      ),
+    );
+  } on FirebaseAuthException catch (e) {
+    String msg = "Şifre sıfırlama isteği gönderilemedi.";
+
+    switch (e.code) {
+  case 'user-not-found':
+    msg = "Bu e-posta ile kayıtlı kullanıcı bulunamadı.";
+    break;
+
+  case 'no-password-provider':
+    msg = "Bu e-posta Google/Apple ile kayıtlı. Şifre sıfırlama yok; Google ile giriş yap.";
+    break;
+
+  case 'invalid-email':
+    msg = "Geçersiz e-posta adresi.";
+    break;
+
+  case 'too-many-requests':
+    msg = "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.";
+    break;
+
+  default:
+    msg = e.message ?? msg;
+}
+
+    setState(() => _errorText = msg);
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   @override
   void dispose() {
@@ -71,67 +152,98 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       User? user;
+
       if (_isLoginMode) {
+        // ✅ Login: AuthService içinde emailVerified kontrolü var.
+        // doğrulanmamışsa FirebaseAuthException(code: email-not-verified) fırlatır.
         user = await _authService.signInWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+
+        if (user != null && mounted) {
+          await _afterAuthSuccess(context);
+        }
       } else {
+        // ✅ Register: doğrulama maili gönder + kullanıcıyı VERIFY ekranına al
         user = await _authService.signUpWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
+          signOutAfterSend: false, // ✅ IMPORTANT: Verify ekranı currentUser ister
+        );
+
+        if (!mounted) return;
+
+        // Home/Setup'a gitme! (spam engel)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Doğrulama e-postası gönderildi. Lütfen mailindeki linke tıklayıp hesabını doğrula.",
+            ),
+          ),
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+          (route) => false,
         );
       }
-
-      if (user != null && mounted) {
-        await _afterAuthSuccess(context);
-      }
     } on FirebaseAuthException catch (e) {
-  String message = 'Bir hata oluştu.';
+      String message = 'Bir hata oluştu.';
 
-  switch (e.code) {
-    case 'user-not-found':
-      message = 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.';
-      break;
+      switch (e.code) {
+        case 'email-not-verified':
+          message = 'E-posta doğrulanmamış. Lütfen e-postanı doğrula.';
+          // ✅ Doğrulama ekranına yönlendir
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+            );
+          }
+          break;
 
-    case 'wrong-password':
-      message = 'Şifre yanlış.';
-      break;
+        case 'user-not-found':
+          message = 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.';
+          break;
 
-    // ✅ Yeni Firebase sürümlerinde yanlış şifre / yanlış hesap için sık gelir
-    case 'invalid-credential':
-    case 'INVALID_LOGIN_CREDENTIALS':
-      message = 'E-posta veya şifre hatalı.';
-      break;
+        case 'wrong-password':
+          message = 'Şifre yanlış.';
+          break;
 
-    case 'user-disabled':
-      message = 'Bu hesap devre dışı bırakılmış.';
-      break;
+        // ✅ Yeni Firebase sürümlerinde yanlış şifre / yanlış hesap için sık gelir
+        case 'invalid-credential':
+        case 'INVALID_LOGIN_CREDENTIALS':
+          message = 'E-posta veya şifre hatalı.';
+          break;
 
-    case 'too-many-requests':
-      message = 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin.';
-      break;
+        case 'user-disabled':
+          message = 'Bu hesap devre dışı bırakılmış.';
+          break;
 
-    case 'email-already-in-use':
-      message = 'Bu e-posta zaten kayıtlı.';
-      break;
+        case 'too-many-requests':
+          message = 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin.';
+          break;
 
-    case 'weak-password':
-      message = 'Şifre çok zayıf (en az 6 karakter).';
-      break;
+        case 'email-already-in-use':
+          message = 'Bu e-posta zaten kayıtlı.';
+          break;
 
-    case 'invalid-email':
-      message = 'Geçerli bir e-posta adresi gir.';
-      break;
+        case 'weak-password':
+          message = 'Şifre çok zayıf (en az 6 karakter).';
+          break;
 
-    default:
-      message = 'Giriş başarısız: ${e.message ?? e.code}';
-  }
+        case 'invalid-email':
+          message = 'Geçerli bir e-posta adresi gir.';
+          break;
 
-  setState(() {
-    _errorText = message;
-  });
+        default:
+          message = 'Giriş başarısız: ${e.message ?? e.code}';
+      }
 
+      setState(() {
+        _errorText = message;
+      });
     } catch (e) {
       setState(() {
         _errorText = 'Beklenmeyen bir hata oluştu: $e';
@@ -265,12 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Form(
                               key: _formKey,
-                              onChanged: () {
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (isValid != _isFormValid) {
-      setState(() => _isFormValid = isValid);
-    }
-    },
+                              
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 mainAxisSize: MainAxisSize.min,
@@ -306,44 +413,54 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
 
-                                  // ✅ SADECE BU ALAN GÜNCELLENDİ (validator + autovalidateMode)
                                   TextFormField(
-                                    controller: _emailController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Email',
-                                      prefixIcon: Icon(Icons.email_outlined),
-                                    ),
-                                    keyboardType: TextInputType.emailAddress,
-                                    validator: Validators.email,
-                                    autovalidateMode:
-                                        AutovalidateMode.onUserInteraction,
-                                  ),
+  controller: _emailController,
+  decoration: InputDecoration(
+    labelText: 'Email',
+    prefixIcon: const Icon(Icons.email_outlined),
+    errorText: (_emailTouched ? _emailError : null),
+  ),
+  keyboardType: TextInputType.emailAddress,
+  autovalidateMode: AutovalidateMode.disabled,
+  onChanged: (_) {
+    final err = Validators.email(_emailController.text.trim());
+    setState(() {
+      _emailTouched = true;
+      _emailError = err;
+    });
+  },
+),
+
                                   const SizedBox(height: 12),
 
-                                  // ✅ SADECE BU ALAN GÜNCELLENDİ (validator + autovalidateMode)
                                   TextFormField(
   controller: _passwordController,
   decoration: InputDecoration(
     labelText: 'Şifre',
     prefixIcon: const Icon(Icons.lock_outline),
+    errorText: (_passwordTouched ? _passwordError : null),
     suffixIcon: IconButton(
       onPressed: () {
         setState(() => _obscurePassword = !_obscurePassword);
       },
-      icon: Icon(
-        _obscurePassword ? Icons.visibility_off : Icons.visibility,
-      ),
+      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
       tooltip: _obscurePassword ? 'Şifreyi göster' : 'Şifreyi gizle',
     ),
   ),
   obscureText: _obscurePassword,
-  validator: Validators.password,
-  autovalidateMode: AutovalidateMode.onUserInteraction,
+  autovalidateMode: AutovalidateMode.disabled,
+  onChanged: (_) {
+    final err = Validators.password(_passwordController.text);
+    setState(() {
+      _passwordTouched = true;
+      _passwordError = err;
+    });
+  },
 ),
 
-const SizedBox(height: 16), // 👈 BOŞLUK
 
-                                  // 🎨 Pastel primary buton (soft shadow)
+                                  const SizedBox(height: 16),
+
                                   SizedBox(
                                     height: 48,
                                     child: ElevatedButton(
@@ -356,31 +473,25 @@ const SizedBox(height: 16), // 👈 BOŞLUK
                                         ),
                                       ).merge(
                                         ButtonStyle(
-                                          shadowColor:
-                                              MaterialStateProperty.all(
+                                          shadowColor: MaterialStateProperty.all(
                                             Colors.black.withOpacity(0.18),
                                           ),
-                                          elevation:
-                                              MaterialStateProperty.resolveWith(
-                                                  (states) {
-                                            if (states.contains(
-                                                MaterialState.pressed)) {
+                                          elevation: MaterialStateProperty.resolveWith((states) {
+                                            if (states.contains(MaterialState.pressed)) {
                                               return 2;
                                             }
                                             return 6;
                                           }),
                                         ),
                                       ),
-                                      onPressed: (!_isFormValid ||_isLoading)
+                                      onPressed: (!_canSubmit || _isLoading) 
                                           ? null
                                           : _submitEmailPassword,
                                       child: _isLoading
                                           ? const SizedBox(
                                               height: 20,
                                               width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
+                                              child: CircularProgressIndicator(strokeWidth: 2),
                                             )
                                           : Text(
                                               titleText,
@@ -391,27 +502,47 @@ const SizedBox(height: 16), // 👈 BOŞLUK
                                             ),
                                     ),
                                   ),
+                                 if (_isLoginMode)
+  Align(
+    alignment: Alignment.centerRight,
+    child: TextButton(
+      onPressed: (_isLoading || !_canForgotPassword) ? null : _forgotPassword,
+      child: const Text("Şifremi unuttum"),
+    ),
+  ),
+
+
 
                                   const SizedBox(height: 8),
                                   TextButton(
+                                    
                                     onPressed: _isLoading
                                         ? null
                                         : () {
                                             setState(() {
-                                              _isLoginMode = !_isLoginMode;
-                                            });
+  _isLoginMode = !_isLoginMode;
+
+  // mod değişince alan hatalarını resetle
+  _emailTouched = false;
+  _passwordTouched = false;
+  _emailError = null;
+  _passwordError = null;
+  _errorText = null;
+});
+
                                           },
                                     child: Text(
+                                      
                                       _isLoginMode
                                           ? 'Hesabın yok mu? Kayıt ol'
                                           : 'Zaten hesabın var mı? Giriş yap',
                                     ),
+                                    
                                   ),
                                   const SizedBox(height: 12),
                                   const Divider(),
                                   const SizedBox(height: 12),
 
-                                  // Google butonu (daha nötr)
                                   SizedBox(
                                     height: 46,
                                     child: ElevatedButton.icon(
@@ -419,15 +550,13 @@ const SizedBox(height: 16), // 👈 BOŞLUK
                                         backgroundColor: isDark
                                             ? const Color(0xFF2C2C2C)
                                             : Colors.white,
-                                        foregroundColor:
-                                            isDark ? Colors.white : Colors.black87,
+                                        foregroundColor: isDark ? Colors.white : Colors.black87,
                                         elevation: isDark ? 2 : 4,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(18),
                                         ),
                                       ),
-                                      onPressed:
-                                          _isLoading ? null : _handleGoogleSignIn,
+                                      onPressed: _isLoading ? null : _handleGoogleSignIn,
                                       icon: const Icon(Icons.login),
                                       label: const Text('Google ile devam et'),
                                     ),
