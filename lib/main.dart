@@ -10,6 +10,8 @@ import 'theme/app_theme.dart';
 
 // ⭐ Gate (yeni)
 import 'auth/auth_gate.dart';
+// ⭐ Splash
+import 'splash/animated_logo_splash.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +49,9 @@ class CaloriSenseApp extends StatelessWidget {
       // - user yok => LoginScreen
       // - emailVerified false => VerifyEmailScreen
       // - verified true => ProfileGate => Home/ProfileSetup
-      home: const AuthGate(),
+      home: AnimatedLogoSplash(
+        next: const AuthGate(),
+      ),
     );
   }
 }

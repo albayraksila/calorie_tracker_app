@@ -66,10 +66,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         children: [
                           const SizedBox(height: 24),
                           Text(
-                            'Seni biraz tanıyalım',
+                            'Seni biraz tanıyalım✨',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
+                              color: Color(0xFF2E6F5E),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -78,7 +78,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             'Profil bilgilerin, CaloriSense’in sana uygun günlük kalori hedefi belirlemesine yardımcı olur.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withOpacity(0.7),
                             ),
                           ),
                           const SizedBox(height: 32),
@@ -89,16 +89,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 TextField(
                                   controller: nameCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: "Ad",
-                                    prefixIcon: Icon(Icons.person_outline),
+                                    labelText: "Adın",
+                                    prefixIcon: Icon(Icons.person_outline, color: Color(0xFF2E6F5E)),
                                   ),
                                 ),
                                 const SizedBox(height: 16),
                                 TextField(
                                   controller: ageCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: "Yaş",
-                                    prefixIcon: Icon(Icons.cake_outlined),
+                                    labelText: "Yaşın",
+                                    prefixIcon: Icon(Icons.cake_outlined, color: Color(0xFF2E6F5E)),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -106,8 +106,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 TextField(
                                   controller: heightCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: "Boy (cm)",
-                                    prefixIcon: Icon(Icons.height),
+                                    labelText: "Boyun (cm)",
+                                    prefixIcon: Icon(Icons.height, color: Color(0xFF2E6F5E)),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -115,9 +115,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 TextField(
                                   controller: weightCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: "Kilo (kg)",
+                                    labelText: "Kilon (kg)",
                                     prefixIcon:
-                                        Icon(Icons.monitor_weight_outlined),
+                                        Icon(Icons.monitor_weight_outlined, color: Color(0xFF2E6F5E)),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -125,9 +125,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 TextField(
                                   controller: calorieCtrl,
                                   decoration: const InputDecoration(
-                                    labelText: "Hedef Günlük Kalori",
+                                    labelText: "Hedef Günlük Kalorin",
                                     prefixIcon:
-                                        Icon(Icons.local_fire_department),
+                                        Icon(Icons.local_fire_department, color: Color(0xFF2E6F5E)),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),

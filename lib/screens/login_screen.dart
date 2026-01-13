@@ -78,7 +78,7 @@ Future<void> _forgotPassword() async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Şifre sıfırlama e-postası gönderildi. Gelen kutunu kontrol etmeyi unutma."),
+        content: Text("Eğer bu e-posta sistemimize kayıtlıysa şifre sıfırlama e-postası gönderildi. Gelen kutunu ve spam klasörünü kontrol etmeyi unutma."),
       ),
     );
   } on FirebaseAuthException catch (e) {

@@ -32,7 +32,7 @@ class PastelButton extends StatelessWidget {
         onPressed: onPressed,
         child: Text(
           text,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF2E6F5E)),
         ),
       ),
     );

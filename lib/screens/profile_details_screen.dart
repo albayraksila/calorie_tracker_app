@@ -150,15 +150,42 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     required String text,
     required VoidCallback onEdit,
   }) {
-    return Row(
-      children: [
-        Expanded(child: Text(text)),
-        IconButton(
-          icon: const Icon(Icons.edit, size: 18),
-          onPressed: onEdit,
-          tooltip: "Düzenle",
-        ),
-      ],
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+  color: Colors.white.withOpacity(0.32), // ✅ 0.10 çok azdı
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(color: Colors.white.withOpacity(0.30)),
+  boxShadow: [
+    BoxShadow(
+      blurRadius: 14,
+      offset: const Offset(0, 6),
+      color: Colors.black.withOpacity(0.08), // ✅ kartlar zeminden ayrılır
+    ),
+  ],
+),
+
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF2E6F5E),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18, color: Color(0xFF2E6F5E)),
+            onPressed: onEdit,
+            tooltip: "Düzenle",
+          ),
+        ],
+      ),
     );
   }
 
@@ -250,16 +277,26 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Profil Bilgilerin",
+                          "Profil detayların ✨",
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w800,
+                            color:const Color(0xFF2E6F5E),
+
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
+                        Text(
+                          "İstediğin zaman güncelleyebilirsin 🙂",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.70),
+
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
                         _lineWithEdit(
                           context: context,
-                          text: "Ad: ${profile.name}",
+                          text: "👤 Adın: ${profile.name}",
                           onEdit: () => _editField(
                             context: context,
                             title: "Ad Soyad",
@@ -278,7 +315,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         _lineWithEdit(
                           context: context,
-                          text: "Yaş: ${profile.age}",
+                          text: "🎂 Yaşın: ${profile.age}",
                           onEdit: () => _editField(
                             context: context,
                             title: "Yaş",
@@ -299,7 +336,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         _lineWithEdit(
                           context: context,
-                          text: "Boy: ${profile.heightCm} cm",
+                          text: "📏 Boyun: ${profile.heightCm} cm",
                           onEdit: () => _editField(
                             context: context,
                             title: "Boy (cm)",
@@ -320,7 +357,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         _lineWithEdit(
                           context: context,
-                          text: "Kilo: ${profile.weightKg} kg",
+                          text: "⚖️ Kilon: ${profile.weightKg} kg",
                           onEdit: () => _editField(
                             context: context,
                             title: "Kilo (kg)",
@@ -343,7 +380,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         _lineWithEdit(
                           context: context,
-                          text: "Hedef Günlük Kalori: ${profile.targetDailyCalories}",
+                          text: "🔥 Günlük hedefin: ${profile.targetDailyCalories} kcal",
                           onEdit: () => _editField(
                             context: context,
                             title: "Hedef Günlük Kalori",
@@ -362,14 +399,37 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           ),
                         ),
 
-                        Text(
-                          'Profil Tamamlandı: ${computedCompleted ? "Evet" : "Hayır"}',
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+  color: Colors.white.withOpacity(0.32), // ✅ 0.10 çok azdı
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(color: Colors.white.withOpacity(0.30)),
+  boxShadow: [
+    BoxShadow(
+      blurRadius: 14,
+      offset: const Offset(0, 6),
+      color: Colors.black.withOpacity(0.08), // ✅ kartlar zeminden ayrılır
+    ),
+  ],
+),
+
+                          child: Text(
+                            computedCompleted
+                                ? "✅ Profil tamamlandı"
+                                : "🟡 Profil eksik",
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF2E6F5E),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 24),
 
                         PastelButton(
-                          text: "Düzenle",
+                          text: "Düzenle ✍️",
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
