@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 
 // ⭐ Tema
 import 'theme/app_theme.dart';
@@ -37,6 +39,15 @@ class CaloriSenseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+        locale: const Locale('tr', 'TR'),
+  supportedLocales: const [
+    Locale('tr', 'TR'),
+  ],
+  localizationsDelegates: const [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
       title: 'CaloriSense',
       debugShowCheckedModeBanner: false,
 

@@ -14,9 +14,6 @@ import '../widgets/glass_card_old.dart';
 import '../widgets/pastel_button.dart';
 import '../widgets/glass_app_bar.dart';
 
-
-
-
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -29,32 +26,30 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: GlassAppBar(
-  title: 'CaloriSense - Home',
-  actions: [
-    IconButton(
-      icon: const Icon(Icons.person),
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ProfileDetailsScreen()),
-        );
-      },
-    ),
-    IconButton(
-      icon: const Icon(Icons.logout),
-      onPressed: () async {
-        await authService.signOut();
-        if (context.mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (route) => false,
-          );
-        }
-      },
-    ),
-  ],
-),
-
-
+        title: 'CaloriSense - Home',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileDetailsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await authService.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: AppBackground(
         child: Center(
           child: SingleChildScrollView(

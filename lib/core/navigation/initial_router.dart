@@ -1,3 +1,4 @@
+import 'package:calorisense/screens/main_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -36,7 +37,7 @@ class InitialRouter extends StatelessWidget {
               return const ProfileSetupScreen();
             }
 
-            return const HomeScreen();
+            return const MainWrapper();
           },
         );
       },

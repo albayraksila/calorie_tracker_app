@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/profile_setup_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/main_wrapper.dart';
 
 class ProfileGate extends StatelessWidget {
   const ProfileGate({super.key});
@@ -26,7 +27,7 @@ class ProfileGate extends StatelessWidget {
         if (data == null) return const ProfileSetupScreen();
 
         final completed = (data['is_profile_completed'] == true);
-        return completed ? const HomeScreen() : const ProfileSetupScreen();
+        return completed ? const MainWrapper() : const ProfileSetupScreen();
       },
     );
   }

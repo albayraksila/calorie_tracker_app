@@ -58,8 +58,25 @@ class ProfileService {
   }
 
   // ============================================================
-  // ✅ YENİ: Profil alan bazlı düzenleme için atomik update’ler
+  // ✅ Profil alan bazlı düzenleme için atomik update’ler
   // ============================================================
+
+  /// ✅ Servis güvenliği: DateTime gönderilirse Timestamp'a çevir
+  dynamic _normalizeValue(String field, dynamic value) {
+    // Modelde kullandığımız alan adı: 'birth_date'
+    if (field == 'birth_date' && value is DateTime) {
+      return Timestamp.fromDate(value);
+    }
+    return value;
+  }
+
+  Map<String, dynamic> _normalizeFields(Map<String, dynamic> fields) {
+    final normalized = <String, dynamic>{};
+    fields.forEach((k, v) {
+      normalized[k] = _normalizeValue(k, v);
+    });
+    return normalized;
+  }
 
   /// ✅ Sadece tek alanı günceller (atomik).
   /// Doküman yoksa "not-found" hatası alırsın.
@@ -70,7 +87,7 @@ class ProfileService {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     await _profileRef(uid).update({
-      field: value,
+      field: _normalizeValue(field, value),
       'updated_at': FieldValue.serverTimestamp(),
     });
   }
@@ -84,7 +101,7 @@ class ProfileService {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     await _profileRef(uid).set({
-      field: value,
+      field: _normalizeValue(field, value),
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -93,8 +110,10 @@ class ProfileService {
   Future<void> upsertProfileFields(Map<String, dynamic> fields) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
+    final normalizedFields = _normalizeFields(fields);
+
     await _profileRef(uid).set({
-      ...fields,
+      ...normalizedFields,
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

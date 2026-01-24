@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 import 'home_screen.dart';
+import 'main_wrapper.dart';
 
 // 🎨 Tasarım widget'ları
 import '../widgets/app_background.dart';
 import '../widgets/glass_card_old.dart';
 import '../widgets/pastel_button.dart';
 import '../widgets/glass_app_bar.dart';
-
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -21,24 +21,53 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final nameCtrl = TextEditingController();
-  final ageCtrl = TextEditingController();
   final heightCtrl = TextEditingController();
   final weightCtrl = TextEditingController();
   final calorieCtrl = TextEditingController();
+
 
   bool _saving = false;
 
   @override
   void dispose() {
     nameCtrl.dispose();
-    ageCtrl.dispose();
     heightCtrl.dispose();
     weightCtrl.dispose();
     calorieCtrl.dispose();
     super.dispose();
   }
 
-    @override
+ DateTime? birthDate;
+final TextEditingController birthDateCtrl = TextEditingController();
+
+String _formatDate(DateTime d) {
+  final dd = d.day.toString().padLeft(2, '0');
+  final mm = d.month.toString().padLeft(2, '0');
+  final yyyy = d.year.toString();
+  return '$dd.$mm.$yyyy';
+}
+
+  Future<void> _pickBirthDate(BuildContext context) async {
+  final now = DateTime.now();
+  final initial = birthDate ?? DateTime(now.year - 20, 1, 1);
+
+  final picked = await showDatePicker(
+    context: context,
+    locale: const Locale('tr', 'TR'),
+    initialDate: initial,
+    firstDate: DateTime(1900, 1, 1),
+    lastDate: now,
+  );
+
+  if (picked == null) return;
+
+  setState(() {
+    birthDate = picked;
+    birthDateCtrl.text = _formatDate(picked);
+  });
+}
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -69,7 +98,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             'Seni biraz tanıyalım✨',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: Color(0xFF2E6F5E),
+                              color: const Color(0xFF2E6F5E),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -82,7 +111,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           GlassCard(
                             child: Column(
                               children: [
@@ -90,24 +118,59 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   controller: nameCtrl,
                                   decoration: const InputDecoration(
                                     labelText: "Adın",
-                                    prefixIcon: Icon(Icons.person_outline, color: Color(0xFF2E6F5E)),
+                                    prefixIcon: Icon(
+                                      Icons.person_outline,
+                                      color: Color(0xFF2E6F5E),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                TextField(
-                                  controller: ageCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: "Yaşın",
-                                    prefixIcon: Icon(Icons.cake_outlined, color: Color(0xFF2E6F5E)),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
+
+// ✅ Doğum tarihi (TextField gibi görünsün)
+TextField(
+  controller: birthDateCtrl,
+  readOnly: true,
+  onTap: () => _pickBirthDate(context),
+  decoration: const InputDecoration(
+    labelText: "Doğum Tarihin",
+    hintText: "Seçiniz (GG.AA.YYYY)",
+    prefixIcon: Icon(
+      Icons.cake_outlined,
+      color: Color(0xFF2E6F5E),
+    ),
+    suffixIcon: Icon(
+      Icons.calendar_month_outlined,
+      color: Color(0xFF2E6F5E),
+    ),
+  ),
+),
+
+// ✅ Yaş önizleme (doğum tarihi seçilince)
+if (birthDate != null) ...[
+  const SizedBox(height: 8),
+  Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      'Yaş: ${UserProfile.calculateAge(birthDate!)}',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: const Color(0xFF2E6F5E),
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+],
+
+
+
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: heightCtrl,
                                   decoration: const InputDecoration(
                                     labelText: "Boyun (cm)",
-                                    prefixIcon: Icon(Icons.height, color: Color(0xFF2E6F5E)),
+                                    prefixIcon: Icon(
+                                      Icons.height,
+                                      color: Color(0xFF2E6F5E),
+                                    ),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -116,8 +179,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   controller: weightCtrl,
                                   decoration: const InputDecoration(
                                     labelText: "Kilon (kg)",
-                                    prefixIcon:
-                                        Icon(Icons.monitor_weight_outlined, color: Color(0xFF2E6F5E)),
+                                    prefixIcon: Icon(
+                                      Icons.monitor_weight_outlined,
+                                      color: Color(0xFF2E6F5E),
+                                    ),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -126,8 +191,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   controller: calorieCtrl,
                                   decoration: const InputDecoration(
                                     labelText: "Hedef Günlük Kalorin",
-                                    prefixIcon:
-                                        Icon(Icons.local_fire_department, color: Color(0xFF2E6F5E)),
+                                    prefixIcon: Icon(Icons.local_fire_department),
                                   ),
                                   keyboardType: TextInputType.number,
                                 ),
@@ -135,7 +199,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 16),
                         ],
                       ),
@@ -159,18 +222,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           child: PastelButton(
                             text: "Kaydet ve Devam Et",
                             onPressed: () async {
+                              
+
                               setState(() => _saving = true);
 
-                              final profile = UserProfile(
-                                name: nameCtrl.text.trim(),
-                                age: int.tryParse(ageCtrl.text) ?? 0,
-                                heightCm: int.tryParse(heightCtrl.text) ?? 0,
-                                weightKg:
-                                    double.tryParse(weightCtrl.text) ?? 0,
-                                targetDailyCalories:
-                                    int.tryParse(calorieCtrl.text) ?? 0,
-                                isProfileCompleted: true,
-                              );
+                             final profile = UserProfile(
+  name: nameCtrl.text.trim(),
+  birthDate: birthDate,
+  heightCm: int.tryParse(heightCtrl.text) ?? 0,
+  weightKg: double.tryParse(weightCtrl.text) ?? 0,
+  targetDailyCalories: int.tryParse(calorieCtrl.text) ?? 0,
+  isProfileCompleted: false, // bunu yazsan bile sorun değil çünkü toMap computed basıyor
+);
+
+                              await ProfileService().saveProfile(profile.withAutoCompleted());
 
                               await ProfileService().saveProfile(profile);
 
@@ -178,7 +243,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const HomeScreen(),
+                                  builder: (_) => const MainWrapper(),
                                 ),
                               );
 

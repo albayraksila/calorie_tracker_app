@@ -9,6 +9,7 @@ import 'home_screen.dart';
 import 'profile_setup_screen.dart';
 import 'verify_email_screen.dart'; 
 import '../utils/validators.dart';
+import 'main_wrapper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -130,7 +131,7 @@ Future<void> _forgotPassword() async {
     if (isCompleted) {
       // Profil hazır -> direkt Home
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainWrapper()),
         (route) => false,
       );
     } else {

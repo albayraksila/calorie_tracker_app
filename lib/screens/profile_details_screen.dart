@@ -24,7 +24,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
   // ✅ Firestore alan isimleri
   static const String kName = 'name';
-  static const String kAge = 'age';
+  static const String kBirthDate = 'birth_date'; // ✅ age yerine
   static const String kHeightCm = 'height_cm';
   static const String kWeightKg = 'weight_kg';
   static const String kTargetDailyCalories = 'target_daily_calories';
@@ -42,13 +42,20 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     });
   }
 
+  String _formatDate(DateTime d) {
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+    final year = d.year.toString();
+    return '$day.$month.$year';
+  }
+
   // ✅ required alanlar tamam mı? (model üzerinden güvenli kontrol)
   bool _isCompleteFromModel(UserProfile p) {
     bool okString(String? v) => v != null && v.trim().isNotEmpty;
     bool okNum(num? v) => v != null && v > 0;
 
     return okString(p.name) &&
-        okNum(p.age) &&
+        (p.birthDate != null) && // ✅ age yerine
         okNum(p.heightCm) &&
         okNum(p.weightKg) &&
         okNum(p.targetDailyCalories);
@@ -145,6 +152,47 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
     }
   }
 
+  /// ✅ Doğum tarihi düzenleme (DatePicker ile)
+  Future<void> _editBirthDate({
+    required BuildContext context,
+    required DateTime? initialDate,
+  }) async {
+    final now = DateTime.now();
+    final init = initialDate ?? DateTime(now.year - 20, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      locale: const Locale('tr', 'TR'),
+      initialDate: init,
+      firstDate: DateTime(now.year - 120, 1, 1),
+      lastDate: now,
+    );
+
+    if (picked == null) return;
+
+    try {
+      await _service.upsertProfileField(
+        field: kBirthDate,
+        value: picked, // ✅ servis DateTime -> Timestamp yapıyor
+      );
+
+      final latest = await _service.getProfile();
+      if (latest != null) {
+        final completed = _isCompleteFromModel(latest);
+        await _service.upsertProfileField(
+          field: kIsProfileCompleted,
+          value: completed,
+        );
+      }
+
+      _refresh();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Kaydedilemedi: $e")),
+      );
+    }
+  }
+
   Widget _lineWithEdit({
     required BuildContext context,
     required String text,
@@ -156,18 +204,17 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-  color: Colors.white.withOpacity(0.32), // ✅ 0.10 çok azdı
-  borderRadius: BorderRadius.circular(14),
-  border: Border.all(color: Colors.white.withOpacity(0.30)),
-  boxShadow: [
-    BoxShadow(
-      blurRadius: 14,
-      offset: const Offset(0, 6),
-      color: Colors.black.withOpacity(0.08), // ✅ kartlar zeminden ayrılır
-    ),
-  ],
-),
-
+        color: Colors.white.withOpacity(0.32),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.30)),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.08),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Expanded(
@@ -272,6 +319,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                   final computedCompleted = _isCompleteFromModel(profile);
 
+                  final bd = profile.birthDate;
+                  final ageText = (profile.age == null) ? "-" : "${profile.age}";
+
                   return GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,16 +330,15 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           "Profil detayların ✨",
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color:const Color(0xFF2E6F5E),
-
+                            color: const Color(0xFF2E6F5E),
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           "İstediğin zaman güncelleyebilirsin 🙂",
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.70),
-
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.70),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -313,24 +362,15 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           ),
                         ),
 
+                        // ✅ Yaş yerine Doğum Tarihi (ve yanında yaş gösterimi)
                         _lineWithEdit(
                           context: context,
-                          text: "🎂 Yaşın: ${profile.age}",
-                          onEdit: () => _editField(
+                          text: bd == null
+                              ? "🎂 Doğum tarihin: -  (Yaş: -)"
+                              : "🎂 Doğum tarihin: ${_formatDate(bd)}  (Yaş: $ageText)",
+                          onEdit: () => _editBirthDate(
                             context: context,
-                            title: "Yaş",
-                            fieldKey: kAge,
-                            initialValue: (profile.age).toString(),
-                            keyboardType: TextInputType.number,
-                            validator: (v) {
-                              final s = (v ?? "").trim();
-                              if (s.isEmpty) return "Bu alan boş bırakılamaz";
-                              final n = int.tryParse(s);
-                              if (n == null) return "Sayı gir";
-                              if (n < 10 || n > 100) return "10-100 arası olmalı";
-                              return null;
-                            },
-                            parseValue: (raw) => int.parse(raw),
+                            initialDate: bd,
                           ),
                         ),
 
@@ -348,7 +388,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                               if (s.isEmpty) return "Bu alan boş bırakılamaz";
                               final n = int.tryParse(s);
                               if (n == null) return "Sayı gir";
-                              if (n < 120 || n > 230) return "120-230 cm arası olmalı";
+                              if (n < 120 || n > 230) {
+                                return "120-230 cm arası olmalı";
+                              }
                               return null;
                             },
                             parseValue: (raw) => int.parse(raw),
@@ -363,14 +405,17 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                             title: "Kilo (kg)",
                             fieldKey: kWeightKg,
                             initialValue: (profile.weightKg).toString(),
-                            keyboardType:
-                                const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             validator: (v) {
                               final s = (v ?? "").trim();
                               if (s.isEmpty) return "Bu alan boş bırakılamaz";
                               final n = double.tryParse(s.replaceAll(",", "."));
                               if (n == null) return "Sayı gir";
-                              if (n < 30 || n > 300) return "30-300 kg arası olmalı";
+                              if (n < 30 || n > 300) {
+                                return "30-300 kg arası olmalı";
+                              }
                               return null;
                             },
                             parseValue: (raw) =>
@@ -380,19 +425,23 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         _lineWithEdit(
                           context: context,
-                          text: "🔥 Günlük hedefin: ${profile.targetDailyCalories} kcal",
+                          text:
+                              "🔥 Günlük hedefin: ${profile.targetDailyCalories} kcal",
                           onEdit: () => _editField(
                             context: context,
                             title: "Hedef Günlük Kalori",
                             fieldKey: kTargetDailyCalories,
-                            initialValue: (profile.targetDailyCalories).toString(),
+                            initialValue:
+                                (profile.targetDailyCalories).toString(),
                             keyboardType: TextInputType.number,
                             validator: (v) {
                               final s = (v ?? "").trim();
                               if (s.isEmpty) return "Bu alan boş bırakılamaz";
                               final n = int.tryParse(s);
                               if (n == null) return "Sayı gir";
-                              if (n < 800 || n > 6000) return "800-6000 arası olmalı";
+                              if (n < 800 || n > 6000) {
+                                return "800-6000 arası olmalı";
+                              }
                               return null;
                             },
                             parseValue: (raw) => int.parse(raw),
@@ -403,18 +452,18 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-  color: Colors.white.withOpacity(0.32), // ✅ 0.10 çok azdı
-  borderRadius: BorderRadius.circular(14),
-  border: Border.all(color: Colors.white.withOpacity(0.30)),
-  boxShadow: [
-    BoxShadow(
-      blurRadius: 14,
-      offset: const Offset(0, 6),
-      color: Colors.black.withOpacity(0.08), // ✅ kartlar zeminden ayrılır
-    ),
-  ],
-),
-
+                            color: Colors.white.withOpacity(0.32),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.30)),
+                            boxShadow: [
+                              BoxShadow(
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                                color: Colors.black.withOpacity(0.08),
+                              ),
+                            ],
+                          ),
                           child: Text(
                             computedCompleted
                                 ? "✅ Profil tamamlandı"
@@ -428,16 +477,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
 
                         const SizedBox(height: 24),
 
-                        PastelButton(
-                          text: "Düzenle ✍️",
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const ProfileSetupScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                      
                       ],
                     ),
                   );
