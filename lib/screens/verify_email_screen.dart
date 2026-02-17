@@ -1,12 +1,11 @@
-// lib/screens/verify_email_screen.dart
 import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/profile_service.dart';
 import 'home_screen.dart';
 import 'profile_setup_screen.dart';
+import '../widgets/main_layout.dart'; // ✅ MainLayout eklendi
 
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({super.key});
@@ -210,22 +209,43 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
   Widget build(BuildContext context) {
     final email = FirebaseAuth.instance.currentUser?.email ?? "";
 
-    return Scaffold(
-      appBar: AppBar(title: const Text("E-posta Doğrulama")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+    // ✅ MainLayout ile sarmalanarak arka plan ve AppBar yönetimi ona devredildi
+    return MainLayout(
+      title: "E-posta Doğrulama",
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("Hesabını doğrulaman gerekiyor.\n\nE-posta: $email"),
-            const SizedBox(height: 12),
-
-    
-
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            // Bilgi Kartı (Bento Stili)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    const Icon(Icons.mark_email_unread_outlined, size: 64, color: Color(0xFF2E6F5E)),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Hesabını doğrulaman gerekiyor.",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      email,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFF2E6F5E), fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 32),
 
             SizedBox(
-              height: 48,
+              height: 52,
               child: ElevatedButton(
                 style: _pastelPrimaryButtonStyle(),
                 onPressed: (_loading || _cooldownLeft > 0) ? null : _resend,
@@ -241,15 +261,15 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
             Text(
               "Doğrulama tamamlandığında otomatik olarak devam edeceksin.",
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
 
             TextButton(
               onPressed: _loading ? null : _logout,
@@ -258,12 +278,16 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
               ),
               child: const Text(
                 "Çıkış yap",
-                style: TextStyle(fontWeight: FontWeight.w500),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
 
             const Spacer(),
-            if (_loading) const Center(child: CircularProgressIndicator()),
+            if (_loading) 
+              const Center(
+                child: CircularProgressIndicator(color: Color(0xFF2E6F5E)),
+              ),
+            const SizedBox(height: 20),
           ],
         ),
       ),

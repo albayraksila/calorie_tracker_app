@@ -2,13 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart'; // ⭐ Tema yönetimi için eklendi
 
 import 'firebase_options.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-
-// ⭐ Tema
+// ⭐ Tema & Servis
 import 'theme/app_theme.dart';
+import 'services/theme_service.dart'; // ⭐ ThemeService eklendi
 
 // ⭐ Gate (yeni)
 import 'auth/auth_gate.dart';
@@ -29,32 +30,40 @@ void main() async {
     await auth.signOut();
   }
 
-  runApp(const CaloriSenseApp());
+  runApp(
+    // ⭐ Uygulama başladığında tema servisini dinlemeye başlar
+    ChangeNotifierProvider(
+      create: (_) => ThemeService(),
+      child: const CaloriSenseApp(),
+    ),
+  );
 }
-
 
 class CaloriSenseApp extends StatelessWidget {
   const CaloriSenseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // ⭐ Aktif tema modunu servisten çeker
+    final themeService = Provider.of<ThemeService>(context);
+
     return MaterialApp(
-        locale: const Locale('tr', 'TR'),
-  supportedLocales: const [
-    Locale('tr', 'TR'),
-  ],
-  localizationsDelegates: const [
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-  ],
+      locale: const Locale('tr', 'TR'),
+      supportedLocales: const [
+        Locale('tr', 'TR'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       title: 'CaloriSense',
       debugShowCheckedModeBanner: false,
 
-      // ⭐ Tema
+      // ⭐ Tema Ayarları
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeService.themeMode, // ✅ Sistem yerine servisten gelen tercih
 
       // ✅ Artık giriş noktası AuthGate
       // - user yok => LoginScreen

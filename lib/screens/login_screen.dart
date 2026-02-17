@@ -31,86 +31,86 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorText;
   bool _emailTouched = false;
-bool _passwordTouched = false;
+  bool _passwordTouched = false;
 
-String? _emailError;
-String? _passwordError;
+  String? _emailError;
+  String? _passwordError;
 
-bool get _canSubmitLogin =>
-    Validators.email(_emailController.text.trim()) == null &&
-    Validators.password(_passwordController.text) == null;
+  bool get _canSubmitLogin =>
+      Validators.email(_emailController.text.trim()) == null &&
+      Validators.password(_passwordController.text) == null;
 
-bool get _canSubmitRegister =>
-    Validators.email(_emailController.text.trim()) == null &&
-    Validators.password(_passwordController.text) == null;
+  bool get _canSubmitRegister =>
+      Validators.email(_emailController.text.trim()) == null &&
+      Validators.password(_passwordController.text) == null;
 
-// Login mi register mı fark etmeksizin bu yeterli:
-bool get _canSubmit => _isLoginMode ? _canSubmitLogin : _canSubmitRegister;
+  // Login mi register mı fark etmeksizin bu yeterli:
+  bool get _canSubmit => _isLoginMode ? _canSubmitLogin : _canSubmitRegister;
 
-bool get _canForgotPassword =>
-    Validators.email(_emailController.text.trim()) == null;
+  bool get _canForgotPassword =>
+      Validators.email(_emailController.text.trim()) == null;
 
 
-//Şifremi Unuttum
-Future<void> _forgotPassword() async {
-  final email = _emailController.text.trim();
+  //Şifremi Unuttum
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
 
-  // Email boşsa kullanıcıyı yönlendir
-  if (email.isEmpty) {
-    setState(() => _errorText = "Şifre sıfırlamak için önce e-posta adresi gerekli.");
-    return;
+    // Email boşsa kullanıcıyı yönlendir
+    if (email.isEmpty) {
+      setState(() => _errorText = "Şifre sıfırlamak için önce e-posta adresi gerekli.");
+      return;
+    }
+
+    // Email formatı hatalıysa (senin validatorın varsa kullan)
+    final emailErr = Validators.email(email);
+    if (emailErr != null) {
+      setState(() => _errorText = emailErr);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      await _authService.sendPasswordResetEmail(email);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Eğer bu e-posta sistemimize kayıtlıysa şifre sıfırlama e-postası gönderildi. Gelen kutunu ve spam klasörünü kontrol etmeyi unutma."),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String msg = "Şifre sıfırlama isteği gönderilemedi.";
+
+      switch (e.code) {
+        case 'user-not-found':
+          msg = "Bu e-posta ile kayıtlı kullanıcı bulunamadı.";
+          break;
+
+        case 'no-password-provider':
+          msg = "Bu e-posta Google/Apple ile kayıtlı. Şifre sıfırlama yok; Google ile giriş yap.";
+          break;
+
+        case 'invalid-email':
+          msg = "Geçersiz e-posta adresi.";
+          break;
+
+        case 'too-many-requests':
+          msg = "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.";
+          break;
+
+        default:
+          msg = e.message ?? msg;
+      }
+
+      setState(() => _errorText = msg);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
-
-  // Email formatı hatalıysa (senin validatorın varsa kullan)
-  final emailErr = Validators.email(email);
-  if (emailErr != null) {
-    setState(() => _errorText = emailErr);
-    return;
-  }
-
-  setState(() {
-    _isLoading = true;
-    _errorText = null;
-  });
-
-  try {
-   await _authService.sendPasswordResetEmail(email);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Eğer bu e-posta sistemimize kayıtlıysa şifre sıfırlama e-postası gönderildi. Gelen kutunu ve spam klasörünü kontrol etmeyi unutma."),
-      ),
-    );
-  } on FirebaseAuthException catch (e) {
-    String msg = "Şifre sıfırlama isteği gönderilemedi.";
-
-    switch (e.code) {
-  case 'user-not-found':
-    msg = "Bu e-posta ile kayıtlı kullanıcı bulunamadı.";
-    break;
-
-  case 'no-password-provider':
-    msg = "Bu e-posta Google/Apple ile kayıtlı. Şifre sıfırlama yok; Google ile giriş yap.";
-    break;
-
-  case 'invalid-email':
-    msg = "Geçersiz e-posta adresi.";
-    break;
-
-  case 'too-many-requests':
-    msg = "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.";
-    break;
-
-  default:
-    msg = e.message ?? msg;
-}
-
-    setState(() => _errorText = msg);
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
-  }
-}
 
   @override
   void dispose() {
@@ -415,49 +415,49 @@ Future<void> _forgotPassword() async {
                                     ),
 
                                   TextFormField(
-  controller: _emailController,
-  decoration: InputDecoration(
-    labelText: 'Email',
-    prefixIcon: const Icon(Icons.email_outlined),
-    errorText: (_emailTouched ? _emailError : null),
-  ),
-  keyboardType: TextInputType.emailAddress,
-  autovalidateMode: AutovalidateMode.disabled,
-  onChanged: (_) {
-    final err = Validators.email(_emailController.text.trim());
-    setState(() {
-      _emailTouched = true;
-      _emailError = err;
-    });
-  },
-),
+                                    controller: _emailController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: const Icon(Icons.email_outlined),
+                                      errorText: (_emailTouched ? _emailError : null),
+                                    ),
+                                    keyboardType: TextInputType.emailAddress,
+                                    autovalidateMode: AutovalidateMode.disabled,
+                                    onChanged: (_) {
+                                      final err = Validators.email(_emailController.text.trim());
+                                      setState(() {
+                                        _emailTouched = true;
+                                        _emailError = err;
+                                      });
+                                    },
+                                  ),
 
                                   const SizedBox(height: 12),
 
                                   TextFormField(
-  controller: _passwordController,
-  decoration: InputDecoration(
-    labelText: 'Şifre',
-    prefixIcon: const Icon(Icons.lock_outline),
-    errorText: (_passwordTouched ? _passwordError : null),
-    suffixIcon: IconButton(
-      onPressed: () {
-        setState(() => _obscurePassword = !_obscurePassword);
-      },
-      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-      tooltip: _obscurePassword ? 'Şifreyi göster' : 'Şifreyi gizle',
-    ),
-  ),
-  obscureText: _obscurePassword,
-  autovalidateMode: AutovalidateMode.disabled,
-  onChanged: (_) {
-    final err = Validators.password(_passwordController.text);
-    setState(() {
-      _passwordTouched = true;
-      _passwordError = err;
-    });
-  },
-),
+                                    controller: _passwordController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Şifre',
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      errorText: (_passwordTouched ? _passwordError : null),
+                                      suffixIcon: IconButton(
+                                        onPressed: () {
+                                          setState(() => _obscurePassword = !_obscurePassword);
+                                        },
+                                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                                        tooltip: _obscurePassword ? 'Şifreyi göster' : 'Şifreyi gizle',
+                                      ),
+                                    ),
+                                    obscureText: _obscurePassword,
+                                    autovalidateMode: AutovalidateMode.disabled,
+                                    onChanged: (_) {
+                                      final err = Validators.password(_passwordController.text);
+                                      setState(() {
+                                        _passwordTouched = true;
+                                        _passwordError = err;
+                                      });
+                                    },
+                                  ),
 
 
                                   const SizedBox(height: 16),
@@ -503,14 +503,14 @@ Future<void> _forgotPassword() async {
                                             ),
                                     ),
                                   ),
-                                 if (_isLoginMode)
-  Align(
-    alignment: Alignment.centerRight,
-    child: TextButton(
-      onPressed: (_isLoading || !_canForgotPassword) ? null : _forgotPassword,
-      child: const Text("Şifremi unuttum"),
-    ),
-  ),
+                                  if (_isLoginMode)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: (_isLoading || !_canForgotPassword) ? null : _forgotPassword,
+                                        child: const Text("Şifremi unuttum"),
+                                      ),
+                                    ),
 
 
 
@@ -521,15 +521,15 @@ Future<void> _forgotPassword() async {
                                         ? null
                                         : () {
                                             setState(() {
-  _isLoginMode = !_isLoginMode;
+                                              _isLoginMode = !_isLoginMode;
 
-  // mod değişince alan hatalarını resetle
-  _emailTouched = false;
-  _passwordTouched = false;
-  _emailError = null;
-  _passwordError = null;
-  _errorText = null;
-});
+                                              // mod değişince alan hatalarını resetle
+                                              _emailTouched = false;
+                                              _passwordTouched = false;
+                                              _emailError = null;
+                                              _passwordError = null;
+                                              _errorText = null;
+                                            });
 
                                           },
                                     child: Text(
