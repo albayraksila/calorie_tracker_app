@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class MainLayout extends StatelessWidget {
   final Widget child;
   final String? title;
+  final String? subtitle; 
   final List<Widget>? actions;
   final bool showAppBar;
 
@@ -12,6 +13,7 @@ class MainLayout extends StatelessWidget {
     super.key,
     required this.child,
     this.title,
+    this.subtitle, 
     this.actions,
     this.showAppBar = true,
   });
@@ -58,14 +60,37 @@ class MainLayout extends StatelessWidget {
                       child: FlexibleSpaceBar(
                         titlePadding: const EdgeInsetsDirectional.only(start: 20, bottom: 16),
                         centerTitle: false,
-                        title: Text(
-                          title ?? "",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : const Color(0xFF1A4D40),
-                          ),
-                        ),
+                         title: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title ?? "",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : const Color(0xFF1A4D40),
+          ),
+        ),
+        if (subtitle != null && subtitle!.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: (isDark ? Colors.white : const Color(0xFF1A4D40))
+                    .withOpacity(0.65),
+              ),
+            ),
+          ),
+      ],
+    ),
                       ),
                     ),
                   ),

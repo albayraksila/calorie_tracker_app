@@ -9,4 +9,9 @@ class DateRange {
     final end = start.add(const Duration(days: 1));
     return DateRange(start, end);
   }
+   static DateRange forDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return DateRange(start, end);
+  }
 }

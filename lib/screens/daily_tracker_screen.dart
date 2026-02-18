@@ -10,14 +10,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/date_range.dart';
 
 class DailyTrackerScreen extends StatelessWidget {
-  const DailyTrackerScreen({super.key});
+   final DateTime? selectedDate;
+  const DailyTrackerScreen({super.key, this.selectedDate});
+
+  String _formatTrDate(DateTime d) {
+    const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    return "${d.day} ${months[d.month - 1]}";
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const SizedBox();
 
-    final range = DateRange.today();
+   
+    final day = selectedDate == null
+        ? DateTime.now()
+        : DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+
+    final range = DateRange.forDay(day);
+
+    final now = DateTime.now();
+    final todayOnly = DateTime(now.year, now.month, now.day);
+    final isFuture = day.isAfter(todayOnly);
+    final isCalendarMode = selectedDate != null;
 
     final foodStream = FirebaseFirestore.instance
         .collection('users')
@@ -36,7 +52,8 @@ class DailyTrackerScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return MainLayout(
-      title: "Günlük Takip",
+       title: isCalendarMode ? (isFuture ? "Gelecek Tarih" : _formatTrDate(day)) : "Günlük Takip",
+      subtitle: isCalendarMode ? "Günlük Takip" : null,
       // ✅ ASLA SingleChildScrollView veya ListView ekleme.
       // MainLayout'un içindeki SliverList zaten her şeyi kaydırıyor.
       child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -305,10 +322,16 @@ class DailyTrackerScreen extends StatelessWidget {
     IconData icon,
     Color color,
   ) {
+     final selectedDay = selectedDate == null
+    ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
+    : DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+
     return GestureDetector(
-      onTap: () => Navigator.push(
+   
+
+     onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => FoodSearchScreen(mealType: title)),
+        MaterialPageRoute(builder: (_) => FoodSearchScreen(mealType: title, selectedDate: selectedDay)),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),

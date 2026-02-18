@@ -6,8 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class FoodSearchScreen extends StatefulWidget {
   final String? mealType; // Null-safe hale getirildi
+  final DateTime? selectedDate;
 
-  const FoodSearchScreen({super.key, this.mealType});
+  const FoodSearchScreen({super.key, this.mealType, this.selectedDate});
 
   @override
   State<FoodSearchScreen> createState() => _FoodSearchScreenState();
@@ -15,6 +16,15 @@ class FoodSearchScreen extends StatefulWidget {
 
 class _FoodSearchScreenState extends State<FoodSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+DateTime get _day {
+  final now = DateTime.now();
+  final d = widget.selectedDate ?? now;
+  return DateTime(d.year, d.month, d.day);
+}
+
+String _dateId(DateTime d) {
+  return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+}
 
   @override
   void dispose() {
@@ -256,15 +266,16 @@ final sugarG = (sugarPer100g * factor).round();
 'sugar_g': sugarG,
 
 
-                  'createdAt': Timestamp.now(),
+                  'createdAt': Timestamp.fromDate(DateTime(_day.year, _day.month, _day.day, 12)),
+                  'dateId': _dateId(_day), // opsiyonel ama faydalı
                 });
 await FirebaseFirestore.instance
     .collection('users')
     .doc(user.uid)
     .collection('daily_summaries')
-    .doc(_todayId())
+    .doc(_dateId(_day))
     .set({
-  'date': _todayId(),
+  'date': _dateId(_day),
   'calories': calories,
   'protein_g': proteinG,
   'carbs_g': carbsG,

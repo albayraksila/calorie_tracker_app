@@ -15,6 +15,7 @@ import '../core/navigation/main_tab_scope.dart';
 import '../services/dashboard_service.dart';
 import '../models/today_summary.dart';
 import '../core/utils/date_range.dart';
+import 'daily_tracker_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -516,14 +517,18 @@ Padding(
   final now = DateTime.now();
   final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
 
-  final monthPrefix = "${now.year}-${now.month.toString().padLeft(2,'0')}";
+  final monthPrefix = "${now.year}-${now.month.toString().padLeft(2, '0')}";
 
   final stream = FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
       .collection('daily_summaries')
       .where('date', isGreaterThanOrEqualTo: "$monthPrefix-01")
-      .where('date', isLessThan: "${now.year}-${(now.month + 1).toString().padLeft(2,'0')}-01")
+      .where(
+        'date',
+        isLessThan:
+            "${now.year}-${(now.month + 1).toString().padLeft(2, '0')}-01",
+      )
       .snapshots();
 
   return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -532,6 +537,14 @@ Padding(
       final docs = snapshot.data?.docs ?? [];
       final map = {for (final d in docs) d.id: d.data()};
 
+      int _toInt(dynamic v) {
+        if (v == null) return 0;
+        if (v is int) return v;
+        if (v is double) return v.round();
+        if (v is num) return v.toInt();
+        return int.tryParse(v.toString()) ?? 0;
+      }
+
       return SizedBox(
         height: 62,
         child: ListView.builder(
@@ -539,18 +552,14 @@ Padding(
           itemCount: daysInMonth,
           itemBuilder: (context, index) {
             final day = index + 1;
-            final id = "$monthPrefix-${day.toString().padLeft(2,'0')}";
+            final id = "$monthPrefix-${day.toString().padLeft(2, '0')}";
             final data = map[id];
 
-            int _toInt(dynamic v) {
-  if (v == null) return 0;
-  if (v is int) return v;
-  if (v is double) return v.round();
-  if (v is num) return v.toInt();
-  return int.tryParse(v.toString()) ?? 0;
-}
+            final calories = _toInt(data?['calories']);
 
-final calories = _toInt(data?['calories']);
+            final selectedDate = DateTime(now.year, now.month, day);
+            final todayStart = DateTime(now.year, now.month, now.day);
+            final isFuture = selectedDate.isAfter(todayStart);
 
             final isToday = day == now.day;
 
@@ -558,22 +567,43 @@ final calories = _toInt(data?['calories']);
                 ? const Color(0xFF2E6F5E).withOpacity(0.20)
                 : Colors.black.withOpacity(0.06);
 
-            return Container(
-              width: 44,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(14),
-                border: isToday
-                    ? Border.all(color: const Color(0xFF2E6F5E), width: 2)
-                    : null,
-              ),
-              child: Center(
-                child: Text(
-                  "$day",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: calories > 0 ? const Color(0xFF2E6F5E) : Colors.black54,
+            return Opacity(
+              opacity: isFuture ? 0.45 : 1,
+              child: GestureDetector(
+                onTap: isFuture
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                DailyTrackerScreen(selectedDate: selectedDate),
+                          ),
+                        );
+                      },
+                child: Container(
+                  width: 44,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: isToday
+                        ? Border.all(
+                            color: const Color(0xFF2E6F5E),
+                            width: 2,
+                          )
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      "$day",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: calories > 0
+                            ? const Color(0xFF2E6F5E)
+                            : Colors.black54,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -585,48 +615,65 @@ final calories = _toInt(data?['calories']);
   );
 }
 
-
-  Widget _buildFoodCard(
-      BuildContext context, String title, String kcal, String imgUrl) {
-    return GestureDetector(
-      onTap: () => MainTabScope.of(context)?.setIndex(1),
-      child: Container(
-        width: 175,
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-              child: Image.network(imgUrl,
-                  height: 115, width: 175, fit: BoxFit.cover),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800, fontSize: 14)),
-                  Text(kcal,
-                      style: const TextStyle(
-                          color: Color(0xFF2E6F5E),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600)),
-                ],
-              ),
-            )
-          ],
-        ),
+Widget _buildFoodCard(
+  BuildContext context,
+  String title,
+  String kcal,
+  String imgUrl,
+) {
+  return GestureDetector(
+    onTap: () => MainTabScope.of(context)?.setIndex(1),
+    child: Container(
+      width: 175,
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+          ),
+        ],
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            child: Image.network(
+              imgUrl,
+              height: 115,
+              width: 175,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  kcal,
+                  style: const TextStyle(
+                    color: Color(0xFF2E6F5E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 }
