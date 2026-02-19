@@ -9,6 +9,7 @@ class UserProfile {
   final int heightCm;
   final double weightKg;
   final int targetDailyCalories;
+  final int weighInIntervalDays;
 
   /// ✅ Firestore’a yazılan tamamlanma bilgisi (ama hesabı tek merkezden yapılacak)
   final bool isProfileCompleted;
@@ -20,6 +21,7 @@ class UserProfile {
     required this.weightKg,
     required this.targetDailyCalories,
     required this.isProfileCompleted,
+      required this.weighInIntervalDays,
   });
 
   /// ✅ Yaş her zaman doğum tarihinden dinamik hesaplanır
@@ -92,6 +94,7 @@ class UserProfile {
     final heightCm = data['height_cm'] ?? 0;
     final weightKg = (data['weight_kg'] ?? 0).toDouble();
     final targetDailyCalories = data['target_daily_calories'] ?? 0;
+    final weighInIntervalDays = (data['weigh_in_interval_days'] ?? 7) as int;
 
     // ✅ Firestore’dan gelen değer bozuk/eksik olabilir; biz yine de kurala göre hesaplayabiliriz.
     // Tercih: DB’deki değeri "truth" kabul etmek yerine kuralı baz almak daha güvenli.
@@ -109,6 +112,8 @@ class UserProfile {
       heightCm: heightCm,
       weightKg: weightKg,
       targetDailyCalories: targetDailyCalories,
+       weighInIntervalDays: weighInIntervalDays,
+
       // ✅ computed kullanıyoruz (önerilen)
       isProfileCompleted: computed,
       // Eğer illa Firestore’daki değeri kullanmak istersen:
@@ -129,6 +134,8 @@ class UserProfile {
       'height_cm': heightCm,
       'weight_kg': weightKg,
       'target_daily_calories': targetDailyCalories,
+            'weigh_in_interval_days': weighInIntervalDays,
+
 
       /// ✅ Artık sabit değil, kurala göre yazılıyor
       'is_profile_completed': computedCompleted,
@@ -141,6 +148,8 @@ class UserProfile {
     int? heightCm,
     double? weightKg,
     int? targetDailyCalories,
+        int? weighInIntervalDays,
+
     bool? isProfileCompleted,
     bool autoRecomputeCompleted = false, // ✅ opsiyon
   }) {
@@ -149,6 +158,8 @@ class UserProfile {
       birthDate: birthDate ?? this.birthDate,
       heightCm: heightCm ?? this.heightCm,
       weightKg: weightKg ?? this.weightKg,
+            weighInIntervalDays: weighInIntervalDays ?? this.weighInIntervalDays,
+
       targetDailyCalories: targetDailyCalories ?? this.targetDailyCalories,
       isProfileCompleted: isProfileCompleted ?? this.isProfileCompleted,
     );

@@ -8,6 +8,9 @@ import '../widgets/main_layout.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/date_range.dart';
+import '../services/weight_service.dart';
+
+
 
 class DailyTrackerScreen extends StatelessWidget {
    final DateTime? selectedDate;
@@ -104,6 +107,11 @@ class DailyTrackerScreen extends StatelessWidget {
             stream: foodStream,
             builder: (context, snapshot) {
               final docs = snapshot.data?.docs ?? [];
+List<QueryDocumentSnapshot<Map<String, dynamic>>> mealDocs(String mealType) {
+  return docs
+      .where((d) => (d.data()['mealType'] ?? '') == mealType)
+      .toList();
+}
 
               int totalProtein = 0, totalCarbs = 0, totalFat = 0;
 
@@ -165,6 +173,7 @@ class DailyTrackerScreen extends StatelessWidget {
                       "$breakfast kcal",
                       Icons.wb_sunny_rounded,
                       const Color(0xFFFFF3E0),
+                      entries: mealDocs("Kahvaltı"),
                     ),
                     _buildMealBento(
                       context,
@@ -172,6 +181,7 @@ class DailyTrackerScreen extends StatelessWidget {
                       "$lunch kcal",
                       Icons.wb_cloudy_rounded,
                       const Color(0xFFE3F2FD),
+                      entries: mealDocs("Öğle Yemeği"),
                     ),
                     _buildMealBento(
                       context,
@@ -179,6 +189,7 @@ class DailyTrackerScreen extends StatelessWidget {
                       "$dinner kcal",
                       Icons.nightlight_round_rounded,
                       const Color(0xFFF3E5F5),
+                      entries: mealDocs("Akşam Yemeği"),
                     ),
                     _buildMealBento(
                       context,
@@ -186,7 +197,10 @@ class DailyTrackerScreen extends StatelessWidget {
                       "$snack kcal",
                       Icons.apple_rounded,
                       const Color(0xFFE8F5E9),
+                      entries: mealDocs("Atıştırmalık"),
                     ),
+                   _buildWeightQuickAddCard(context),
+const SizedBox(height: 14),
                   ],
                 ),
               );
@@ -315,13 +329,152 @@ class DailyTrackerScreen extends StatelessWidget {
     );
   }
 
+  double? _parseKg(String raw) {
+  final cleaned = raw
+      .trim()
+      .toLowerCase()
+      .replaceAll('kg', '')
+      .replaceAll(' ', '')
+      .replaceAll(',', '.');
+  return double.tryParse(cleaned);
+}
+  Widget _buildWeightQuickAddCard(BuildContext context) {
+  return GestureDetector(
+    onTap: () => _openAddWeightSheet(context),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
+        border: Border.all(color: Colors.white),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.monitor_weight_outlined, color: Color(0xFF2E6F5E)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Kilo Kaydı Ekle",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            ),
+          ),
+          Icon(Icons.add_circle_outline_rounded, color: Colors.black26),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _openAddWeightSheet(BuildContext context) async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Giriş yapılmamış görünüyor.")),
+    );
+    return;
+  }
+
+  final ctrl = TextEditingController();
+
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetContext) {
+      final bottom = MediaQuery.of(sheetContext).viewInsets.bottom;
+
+      return Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Kilo Kaydı", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: "Örn: 78.4",
+                filled: true,
+                fillColor: Colors.black.withOpacity(0.04),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E6F5E),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () async {
+                  final v = _parseKg(ctrl.text);
+                  if (v == null || v <= 0) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(content: Text("Geçerli bir kilo gir.")),
+                    );
+                    return;
+                  }
+
+                  final now = DateTime.now();
+                  final day = DateTime(now.year, now.month, now.day);
+                  final docId =
+                      "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
+
+              final base = selectedDate ?? DateTime.now();
+
+await WeightService().addWeight(
+  kg: v,
+  forDateTime: DateTime(base.year, base.month, base.day, 12),
+);
+
+
+
+
+                  Navigator.pop(sheetContext);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Kilo kaydedildi ✅")),
+                  );
+                },
+                child: const Text(
+                  "Kaydet",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
   Widget _buildMealBento(
     BuildContext context,
     String title,
     String calories,
     IconData icon,
-    Color color,
-  ) {
+    Color color, {
+  required List<QueryDocumentSnapshot<Map<String, dynamic>>> entries,
+ } ) {
      final selectedDay = selectedDate == null
     ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
     : DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
@@ -341,38 +494,93 @@ class DailyTrackerScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: Colors.black54, size: 22),
-            ),
-            const SizedBox(width: 15),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-            ),
-            const Spacer(),
-            Text(
-              calories,
-              style: const TextStyle(
-                color: Colors.black38,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Icon(
-              Icons.add_circle_outline_rounded,
-              color: Color(0xFF2E6F5E),
-              size: 20,
-            ),
-          ],
+       child: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.85),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(icon, color: Colors.black54),
         ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                calories,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  color: Colors.black45,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.chevron_right_rounded, color: Colors.black38),
+      ],
+    ),
+
+    // ✅ AŞAMA 3: CHIP LİSTESİ
+    if (entries.isNotEmpty) ...[
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: entries.take(4).map((e) {
+          final data = e.data();
+          final name = (data['name'] ?? 'Yiyecek').toString();
+          final kcal = (data['calories'] ?? 0).toString();
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.65),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white),
+            ),
+            child: Text(
+              "$name • ${kcal}kcal",
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.black54,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+      if (entries.length > 4)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            "+${entries.length - 4} daha",
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.black38,
+            ),
+          ),
+        ),
+    ],
+  ],
+),
+
       ),
     );
   }

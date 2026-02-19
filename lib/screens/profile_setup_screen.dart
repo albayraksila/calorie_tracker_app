@@ -228,6 +228,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           heightCm: int.tryParse(heightCtrl.text) ?? 0,
                           weightKg: double.tryParse(weightCtrl.text) ?? 0,
                           targetDailyCalories: int.tryParse(calorieCtrl.text) ?? 0,
+                         weighInIntervalDays: 7,
                           isProfileCompleted: false,
                         );
 
