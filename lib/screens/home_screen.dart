@@ -25,7 +25,8 @@ class HomeScreen extends StatelessWidget {
   Map<String, dynamic> _calcEfficiency({
   required int targetCalories,
   required double consumedCalories,
-  required double waterMl,
+    required double waterMl,
+  required double waterTargetMl,
   required int mealsCompleted, // 0..4
   required double fiberG,
   required double sugarG,
@@ -44,9 +45,10 @@ class HomeScreen extends StatelessWidget {
   // 2) Öğün tamamlama (0..20)
   final mealScore = (mealsCompleted.clamp(0, 4) / 4.0) * 20.0;
 
-  // 3) Su (0..20) hedefi 2500 ml varsayalım
-  const waterTarget = 2500.0;
-  final waterScore = (waterMl / waterTarget).clamp(0.0, 1.0) * 20.0;
+
+ // 3) Su (0..20) hedefi kullanıcı ayarına göre
+final safeTarget = (waterTargetMl <= 0) ? 2500.0 : waterTargetMl;
+final waterScore = (waterMl / safeTarget).clamp(0.0, 1.0) * 20.0;
 
   // 4) Lif (0..10) 30g hedef
   final fiberScore = (fiberG / 30.0).clamp(0.0, 1.0) * 10.0;
@@ -256,7 +258,29 @@ Padding(
 
 ),
 const SizedBox(height: 12),
-_buildMiniCalorieLineChart(uid, days: 14),
+
+StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+  stream: FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .snapshots(),
+  builder: (context, userSnap) {
+    if (!userSnap.hasData) {
+      return const SizedBox();
+    }
+
+    final userData = userSnap.data!.data() ?? {};
+
+    final targetCalories =
+        (userData['targetCalories'] ?? 2000).toDouble();
+
+    return _buildMiniCalorieLineChart(
+      uid,
+      days: 14,
+      targetCalories: targetCalories,
+    );
+  },
+),
 
 // 3. BENTO GRID (SU VE VERİMLİLİK) -> canlı skor
 StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -292,69 +316,84 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         ]) ??
         2100;
 
-    return StreamBuilder<TodaySummary>(
-      stream: _dashboardService.watchTodaySummary(uid),
-      builder: (context, summarySnap) {
-        final s = summarySnap.data ?? const TodaySummary.zero();
-        final currentLiters = s.waterMl / 1000.0;
+    // ✅ Su hedefi: users/{uid}.water_target_glasses -> ml -> litre
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, userSnap) {
+        final userData = userSnap.data?.data();
+        final targetGlasses =
+            (userData?['water_target_glasses'] as num?)?.toInt() ?? 10;
 
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: foodStream,
-          builder: (context, foodSnap) {
-            final docs = foodSnap.data?.docs ?? [];
+        final waterTargetMl = targetGlasses * 250.0;
+        final waterTargetLiters = waterTargetMl / 1000.0;
 
-            double fiber = 0;
-            double sugar = 0;
-            final meals = <String>{};
+        return StreamBuilder<TodaySummary>(
+          stream: _dashboardService.watchTodaySummary(uid),
+          builder: (context, summarySnap) {
+            final s = summarySnap.data ?? const TodaySummary.zero();
+            final currentLiters = s.waterMl / 1000.0;
 
-            for (final d in docs) {
-              final data = d.data();
-              final meal = (data['mealType'] ?? '').toString();
-              if (meal.isNotEmpty) meals.add(meal);
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: foodStream,
+              builder: (context, foodSnap) {
+                final docs = foodSnap.data?.docs ?? [];
 
-              final f = data['fiber_g'];
-              final su = data['sugar_g'];
-              if (f is num) fiber += f.toDouble();
-              if (su is num) sugar += su.toDouble();
-            }
+                double fiber = 0;
+                double sugar = 0;
+                final meals = <String>{};
 
-            final mealsCompleted = meals.length.clamp(0, 4);
+                for (final d in docs) {
+                  final data = d.data();
+                  final meal = (data['mealType'] ?? '').toString();
+                  if (meal.isNotEmpty) meals.add(meal);
 
-            final res = _calcEfficiency(
-              targetCalories: targetCalories,
-              consumedCalories: s.calories.toDouble(),
-              waterMl: s.waterMl.toDouble(),
-              mealsCompleted: mealsCompleted,
-              fiberG: fiber,
-              sugarG: sugar,
-            );
+                  final f = data['fiber_g'];
+                  final su = data['sugar_g'];
+                  if (f is num) fiber += f.toDouble();
+                  if (su is num) sugar += su.toDouble();
+                }
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => goTab(3),
-                        behavior: HitTestBehavior.opaque,
-                        child: _buildWaterBento(currentLiters, 2.5),
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => goTab(2),
-                        behavior: HitTestBehavior.opaque,
-                        child: _buildEfficiencyBento(
-                          score: res['score'] as int,
-                          tip: res['tip'] as String,
+                final mealsCompleted = meals.length.clamp(0, 4);
+
+                final res = _calcEfficiency(
+                  targetCalories: targetCalories,
+                  consumedCalories: s.calories.toDouble(),
+                  waterMl: s.waterMl.toDouble(),
+                  waterTargetMl: waterTargetMl, // ✅ artık tanımlı
+                  mealsCompleted: mealsCompleted,
+                  fiberG: fiber,
+                  sugarG: sugar,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => goTab(3),
+                            behavior: HitTestBehavior.opaque,
+                            // ✅ 2.5 sabiti yerine dinamik hedef litre
+                            child: _buildWaterBento(currentLiters, waterTargetLiters),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => goTab(2),
+                            behavior: HitTestBehavior.opaque,
+                            child: _buildEfficiencyBento(
+                              score: res['score'] as int,
+                              tip: res['tip'] as String,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -362,7 +401,6 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
     );
   },
 ),
-
           
           // 4. MENÜ BAŞLIĞI
           Padding(
@@ -415,23 +453,40 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         return tb.compareTo(ta);
       });
 
-      return ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        children: docs.map((d) {
-          final data = d.data();
-          final name = (data['name'] ?? 'Yiyecek').toString();
-          final kcal = (data['calories'] ?? 0).toString();
-          final meal = (data['mealType'] ?? '').toString();
+      // ✅ Öğüne göre grupla
+final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grouped = {};
+for (final d in docs) {
+  final meal = (d.data()['mealType'] ?? 'Yiyecek').toString();
+  grouped.putIfAbsent(meal, () => []).add(d);
+}
 
-          return _buildFoodCardLive(
-            context,
-            name,
-            "$kcal kcal",
-            meal,
-          );
-        }).toList(),
-      );
+// (İsteğe bağlı) sabit sıralama
+const mealOrder = <String>[
+  'Kahvaltı',
+  'Öğle Yemeği',
+  'Akşam Yemeği',
+  'Ara Öğün',
+  'Yiyecek',
+];
+
+final meals = grouped.keys.toList()
+  ..sort((a, b) {
+    final ia = mealOrder.indexOf(a);
+    final ib = mealOrder.indexOf(b);
+    if (ia == -1 && ib == -1) return a.compareTo(b);
+    if (ia == -1) return 1;
+    if (ib == -1) return -1;
+    return ia.compareTo(ib);
+  });
+
+return ListView(
+  scrollDirection: Axis.horizontal,
+  padding: const EdgeInsets.symmetric(horizontal: 15),
+  children: meals.map((mealType) {
+    final entries = grouped[mealType] ?? [];
+    return _buildMealGroupCardLive(context, mealType, entries);
+  }).toList(),
+);
     },
   ),
 ),
@@ -444,6 +499,110 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
   }
 
   // --- YARDIMCI WIDGETLAR ---
+
+  Widget _buildMealGroupCardLive(
+  BuildContext context,
+  String mealType,
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> entries,
+) {
+  // kart toplamı
+  final total = entries.fold<double>(0.0, (sum, e) {
+    final c = e.data()['calories'];
+    final v = (c is num) ? c.toDouble() : double.tryParse(c?.toString() ?? '0') ?? 0.0;
+    return sum + v;
+  });
+
+  // kart içi max 6 item gösterelim
+  final shown = entries.take(6).toList();
+
+  return Container(
+    width: 280,
+    margin: const EdgeInsets.only(right: 12),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.75),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: Colors.white.withOpacity(0.9)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                mealType,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              "${total.round()} kcal",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF128D64),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.separated(
+            itemCount: shown.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (_, i) {
+              final data = shown[i].data();
+              final name = (data['name'] ?? 'Yiyecek').toString();
+              final kcal = (data['calories'] ?? 0).toString();
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00ACC1).withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      "$kcal kcal",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (entries.length > 6)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              "+${entries.length - 6} daha",
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.black38,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
   Widget _buildAppBarAction(BuildContext context,
       {required IconData icon, required VoidCallback onTap}) {
@@ -463,47 +622,141 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
     );
   }
 
-Widget _buildMiniCalorieLineChart(String uid, {required int days}) {
+Widget _buildMiniCalorieLineChart(
+  String uid, {
+  required int days,
+  required double targetCalories,
+}) {
   final now = DateTime.now();
-  final start = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
+  final start =
+      DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
 
   String dateId(DateTime d) =>
       "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
 
-  final stream = FirebaseFirestore.instance
-      .collection('users')
-      .doc(uid)
-      .collection('daily_summaries')
-      .where('date', isGreaterThanOrEqualTo: dateId(start))
-      .where('date', isLessThanOrEqualTo: dateId(now))
-      .snapshots();
+final stream = FirebaseFirestore.instance
+    .collection('users')
+    .doc(uid)
+    .collection('daily_summaries')
+    .where('date', isGreaterThanOrEqualTo: dateId(start))
+    .where('date', isLessThanOrEqualTo: dateId(now))
+    .orderBy('date') // ✅ şart
+    .snapshots();
+
 
   return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
     stream: stream,
     builder: (context, snap) {
       final docs = snap.data?.docs ?? [];
+      if (snap.hasError) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.75),
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: Colors.white),
+    ),
+    child: Text("Grafik verisi alınamadı: ${snap.error}",
+        style: const TextStyle(fontWeight: FontWeight.w700)),
+  );
+}
 
-      // map: date -> calories
-      final map = <String, double>{};
-      for (final d in docs) {
-        final data = d.data();
-        final date = (data['date'] ?? '').toString();
-        final cal = (data['calories'] ?? data['totalCalories'] ?? 0);
-        map[date] = (cal is num) ? cal.toDouble() : 0.0;
-      }
+     // map: date -> TOTAL calories (sum)
+final map = <String, double>{};
+for (final d in docs) {
+  final data = d.data();
+  final date = (data['date'] ?? '').toString();
+
+ final raw = (data['totalCalories'] ?? data['calories'] ?? 0);
+final cal = (raw is num) ? raw.toDouble() : double.tryParse(raw.toString()) ?? 0.0;
+
+// daily_summaries zaten gün bazlı tek doc ise biriktirme yerine direkt ata
+map[date] = cal < 0 ? 0 : cal;
+}
 
       final points = <FlSpot>[];
+      
+      final belowTargetSpots = <FlSpot>[];
+final aboveTargetSpots = <FlSpot>[];
+
+for (final spot in points) {
+  if (spot.y <= targetCalories) {
+    belowTargetSpots.add(spot);
+  } else {
+    aboveTargetSpots.add(spot);
+  }
+}
+      final hasData = List<bool>.filled(days, false);
+
       double maxY = 0;
 
+      // önce hasData + maxY üretelim
       for (int i = 0; i < days; i++) {
         final day = start.add(Duration(days: i));
         final id = dateId(day);
-        final y = map[id] ?? 0.0;
-        points.add(FlSpot(i.toDouble(), y));
-        if (y > maxY) maxY = y;
+
+        if (map.containsKey(id)) {
+          final y = map[id] ?? 0.0;
+          hasData[i] = true;
+          if (y > maxY) maxY = y;
+        }
       }
 
-      if (maxY < 500) maxY = 500; // chart boş kalmasın
+      // soldan/sağdan kırpma: ilk ve son veri index
+      int baseIndex = hasData.indexWhere((e) => e);
+      int endIndex = hasData.lastIndexWhere((e) => e);
+
+      // hiç veri yoksa: kırpma yapma
+      if (baseIndex == -1) baseIndex = 0;
+      if (endIndex == -1) endIndex = days - 1;
+
+      final visibleDays = (endIndex - baseIndex + 1).clamp(1, days);
+
+      // şimdi points’i, baseIndex’e göre kaydırarak üret
+      points.clear();
+      for (int i = baseIndex; i <= endIndex; i++) {
+        if (!hasData[i]) continue;
+
+        final day = start.add(Duration(days: i));
+        final id = dateId(day);
+        final y = map[id] ?? 0.0;
+
+        points.add(FlSpot((i - baseIndex).toDouble(), y));
+      }
+
+      if (points.isEmpty) maxY = 500;
+      if (maxY < 500) maxY = 500;
+
+      const trMonths = [
+        "Oca",
+        "Şub",
+        "Mar",
+        "Nis",
+        "May",
+        "Haz",
+        "Tem",
+        "Ağu",
+        "Eyl",
+        "Eki",
+        "Kas",
+        "Ara"
+      ];
+      const trWeekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cts", "Paz"];
+
+      String formatDate(DateTime d) => "${d.day} ${trMonths[d.month - 1]}";
+      String formatWeekday(DateTime d) => trWeekdays[d.weekday - 1];
+
+      // bugün label'ı: her zaman altta sağda görünsün (grafiği uzatmadan)
+      final today = DateTime(now.year, now.month, now.day);
+      final todayLabel = "${formatWeekday(today)} ${formatDate(today)}";
+
+      // bugün kırpılan aralığın içinde mi?
+      final rawTodayShifted = (days - 1) - baseIndex;
+      final todayShifted =
+          rawTodayShifted.clamp(0, (visibleDays - 1).toInt()); // güvenli
+      final todayIsInRange =
+          (days - 1) >= baseIndex && (days - 1) <= endIndex; // gerçek kontrol
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 15),
@@ -523,25 +776,159 @@ Widget _buildMiniCalorieLineChart(String uid, {required int days}) {
             const SizedBox(height: 10),
             SizedBox(
               height: 120,
-              child: LineChart(
-                LineChartData(
-                  gridData: const FlGridData(show: false),
-                  titlesData: const FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  minX: 0,
-                  maxX: (days - 1).toDouble(),
-                  minY: 0,
-                  maxY: maxY * 1.1,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: points,
-                      isCurved: true,
-                      barWidth: 3,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(show: true),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        borderData: FlBorderData(show: false),
+                        minX: 0,
+                        maxX: (visibleDays - 1).toDouble(),
+                        minY: 0,
+                        maxY: maxY * 1.1,
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              reservedSize: 26, // overlay ile daha kompakt
+                              getTitlesWidget: (value, meta) {
+                                final shifted = value.toInt();
+
+                                if (shifted < 0 || shifted >= visibleDays) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                final actualIndex = shifted + baseIndex;
+                                if (actualIndex < 0 || actualIndex >= days) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                // bugün grafiğin içindeyse belirgin yapalım
+                                final isToday =
+                                    todayIsInRange && shifted == todayShifted;
+
+                                // bugün hariç kalabalığı azaltmak için 2 günde bir
+                                if (!isToday && shifted % 2 != 0) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                // bugün hariç sadece veri olan günler
+                                if (!isToday && !hasData[actualIndex]) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                final day =
+                                    start.add(Duration(days: actualIndex));
+                                final wd = formatWeekday(day);
+                                final dt = formatDate(day);
+
+                                final color = isToday
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.withOpacity(0.28);
+
+                                return SideTitleWidget(
+                                  meta: meta,
+                                  space: 10,
+                                  child: Text(
+                                    "$wd $dt",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.clip,
+                                    style: TextStyle(
+                                      fontSize: isToday ? 10.5 : 9,
+                                      fontWeight: isToday
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: color,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        lineTouchData: LineTouchData(
+                          handleBuiltInTouches: true,
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipColor: (touchedSpot) =>
+                                Colors.white.withOpacity(0.9),
+                          ),
+                          touchCallback: (event, response) {
+                            if (event is! FlTapUpEvent) return;
+
+                            final spots = response?.lineBarSpots;
+                            if (spots == null || spots.isEmpty) return;
+
+                            final spot = spots.first;
+                            final shifted = spot.x.round();
+                            if (shifted < 0 || shifted >= visibleDays) return;
+
+                            final actualIndex = shifted + baseIndex;
+                            if (actualIndex < 0 || actualIndex >= days) return;
+
+                            if (!hasData[actualIndex]) return;
+
+                            final selectedDate = DateTime(
+                              start.year,
+                              start.month,
+                              start.day,
+                            ).add(Duration(days: actualIndex));
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    DailyTrackerScreen(selectedDate: selectedDate),
+                              ),
+                            );
+                          },
+                        ),
+                        extraLinesData: ExtraLinesData(
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: targetCalories,
+                              strokeWidth: 1,
+                              color: Colors.grey.withOpacity(0.25),
+                              dashArray: [6, 6],
+                            ),
+                          ],
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: points,
+                            isCurved: true,
+                            barWidth: 3,
+                            color: const Color(0xFF00ACC1),
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.green.withOpacity(0.12),
+                              cutOffY: targetCalories,
+                              applyCutOffY: true,
+                            ),
+                            aboveBarData: BarAreaData(
+                              show: true,
+                              color: Colors.red.withOpacity(0.10),
+                              cutOffY: targetCalories,
+                              applyCutOffY: true,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                 
+                ],
               ),
             ),
           ],
@@ -550,7 +937,6 @@ Widget _buildMiniCalorieLineChart(String uid, {required int days}) {
     },
   );
 }
-
   Widget _buildStreakIndicator(String days) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1064,86 +1450,116 @@ Widget _buildEfficiencyCard({
   required double todayCalories, // TodaySummary’dan
   required double todayWaterMl,  // TodaySummary’dan
 }) {
-  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-    stream: foodStream,
-    builder: (context, snap) {
-      final docs = snap.data?.docs ?? [];
+  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+    builder: (context, userSnap) {
+      final userData = userSnap.data?.data();
+      final targetGlasses =
+          (userData?['water_target_glasses'] as num?)?.toInt() ?? 10;
 
-      // meals completed + fiber/sugar
-      final meals = <String>{};
-      double fiber = 0;
-      double sugar = 0;
+      final waterTargetMl = targetGlasses * 250.0;
 
-      for (final d in docs) {
-        final data = d.data();
-        final meal = (data['mealType'] ?? '').toString();
-        if (meal.isNotEmpty) meals.add(meal);
+      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: foodStream,
+        builder: (context, snap) {
+          final docs = snap.data?.docs ?? [];
 
-        final f = data['fiber_g'];
-        final s = data['sugar_g'];
-        if (f is num) fiber += f.toDouble();
-        if (s is num) sugar += s.toDouble();
-      }
+          // meals completed + fiber/sugar
+          final meals = <String>{};
+          double fiber = 0;
+          double sugar = 0;
 
-      // 4 öğün sayıyorsan burada normalize edebilirsin
-      final mealsCompleted = meals.length.clamp(0, 4);
+          for (final d in docs) {
+            final data = d.data();
+            final meal = (data['mealType'] ?? '').toString();
+            if (meal.isNotEmpty) meals.add(meal);
 
-      final res = _calcEfficiency(
-        targetCalories: targetCalories,
-        consumedCalories: todayCalories,
-        waterMl: todayWaterMl,
-        mealsCompleted: mealsCompleted,
-        fiberG: fiber,
-        sugarG: sugar,
-      );
+            final f = data['fiber_g'];
+            final s = data['sugar_g'];
+            if (f is num) fiber += f.toDouble();
+            if (s is num) sugar += s.toDouble();
+          }
 
-      final score = res["score"] as int;
-      final tip = res["tip"] as String;
+          final mealsCompleted = meals.length.clamp(0, 4);
 
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 15),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.75),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: Colors.white),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E6F5E).withOpacity(0.10),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("Skor", style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black45)),
-                  const SizedBox(height: 4),
-                  Text(
-                    "$score",
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
-                  ),
-                ],
-              ),
+          final res = _calcEfficiency(
+            targetCalories: targetCalories,
+            consumedCalories: todayCalories,
+            waterMl: todayWaterMl,
+            waterTargetMl: waterTargetMl,
+            mealsCompleted: mealsCompleted,
+            fiberG: fiber,
+            sugarG: sugar,
+          );
+
+          final score = res["score"] as int;
+          final tip = res["tip"] as String;
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 15),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.75),
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: Colors.white),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Verimlilik", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                  const SizedBox(height: 6),
-                  Text(
-                    tip,
-                    style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w700),
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E6F5E).withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                ],
-              ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "Skor",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black45,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "$score",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Verimlilik",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        tip,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
     },
   );

@@ -108,7 +108,7 @@ Stream<List<WeightEntry>> _weightEntriesStream() {
       .orderBy('date', descending: true);
 
   return q.snapshots().map((snap) {
-    final list = snap.docs.map((d) => WeightEntry.fromDoc(d.data())).toList();
+    final list = snap.docs.map((d) => WeightEntry.fromSnapshot(d)).toList();
     list.sort((a, b) => a.date.compareTo(b.date));
     return list;
   });
@@ -150,6 +150,68 @@ Stream<List<WeightEntry>> _weightEntriesStream() {
     return int.tryParse(v.toString()) ?? 0;
   }
 
+void _openWeightManageSheet(List<WeightEntry> entries) {
+  final ws = WeightService();
+
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (_) => SafeArea(
+      child: ListView.separated(
+        shrinkWrap: true,
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (_, i) {
+          final e = entries[entries.length - 1 - i]; // en yeni üstte
+          final dateStr =
+              "${e.date.day.toString().padLeft(2,'0')}.${e.date.month.toString().padLeft(2,'0')}.${e.date.year}";
+
+          return ListTile(
+            title: Text(
+              "$dateStr • ${e.weightKg.toStringAsFixed(1)} kg",
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            trailing: PopupMenuButton<String>(
+              onSelected: (v) async {
+                if (v == 'edit') {
+                  final ctrl = TextEditingController(text: e.weightKg.toStringAsFixed(1));
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("Kilo düzenle"),
+                      content: TextField(
+                        controller: ctrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: "kg"),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal")),
+                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("Kaydet")),
+                      ],
+                    ),
+                  );
+
+                  if (ok == true) {
+                    final kg = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+                    if (kg != null) await ws.updateWeight(entryId: e.id, kg: kg);
+                  }
+                }
+
+                if (v == 'delete') {
+                  await ws.deleteWeight(entryId: e.id);
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'edit', child: Text("Düzenle")),
+                PopupMenuItem(value: 'delete', child: Text("Sil")),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
   // ----------------------------
   // UI
   // ----------------------------
@@ -210,7 +272,6 @@ const SizedBox(height: 10),
           ],
         ),
 ),
-const SizedBox(height: 12),
 
 
                           if (showDueCard) _buildWeighInCard(intervalDays),
@@ -507,43 +568,48 @@ final newest = sorted.last;
   final diffText = "$sign${diff.toStringAsFixed(1)} kg";
 
   return Row(
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Son kilo",
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black45),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              "${newest.weightKg.toStringAsFixed(1)} kg",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-            ),
-          ],
-        ),
-      ),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+  children: [
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Değişim",
+            "Son kilo",
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black45),
           ),
           const SizedBox(height: 2),
           Text(
-            diffText,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: diff <= 0 ? const Color(0xFF2E6F5E) : Colors.deepOrange,
-            ),
+            "${newest.weightKg.toStringAsFixed(1)} kg",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
         ],
       ),
-    ],
-  );
+    ),
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const Text(
+          "Değişim",
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black45),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          diffText,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: diff <= 0 ? const Color(0xFF2E6F5E) : Colors.deepOrange,
+          ),
+        ),
+      ],
+    ),
+    const SizedBox(width: 6),
+    IconButton(
+      icon: const Icon(Icons.more_vert, color: Colors.black45),
+      onPressed: () => _openWeightManageSheet(entries),
+    ),
+  ],
+);
 }
 Widget _buildRangeToggle() {
   Widget chip(String label, int days) {

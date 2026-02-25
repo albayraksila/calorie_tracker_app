@@ -269,22 +269,51 @@ final sugarG = (sugarPer100g * factor).round();
                   'createdAt': Timestamp.fromDate(DateTime(_day.year, _day.month, _day.day, 12)),
                   'dateId': _dateId(_day), // opsiyonel ama faydalı
                 });
-await FirebaseFirestore.instance
+
+double _asDouble(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0.0;
+}
+
+final summaryRef = FirebaseFirestore.instance
     .collection('users')
     .doc(user.uid)
     .collection('daily_summaries')
-    .doc(_dateId(_day))
-    .set({
-  'date': _dateId(_day),
-  'calories': calories,
-  'protein_g': proteinG,
-  'carbs_g': carbsG,
-  'fat_g': fatG,
-  'fiber_g': fiberG,
-  'sugar_g': sugarG,
-  'water_ml': 0,
-  'completed': false,
-}, SetOptions(merge: true));
+    .doc(_dateId(_day));
+
+final cals = _asDouble(calories);
+final p = _asDouble(proteinG);
+final c = _asDouble(carbsG);
+final f = _asDouble(fatG);
+final fib = _asDouble(fiberG);
+final sug = _asDouble(sugarG);
+
+await FirebaseFirestore.instance.runTransaction((tx) async {
+  final snap = await tx.get(summaryRef);
+  final cur = snap.data() ?? <String, dynamic>{};
+
+  double curNum(String k) {
+    final v = cur[k];
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '0') ?? 0.0;
+  }
+
+  tx.set(summaryRef, {
+    'date': _dateId(_day),
+    'updatedAt': FieldValue.serverTimestamp(),
+
+    // ✅ gün toplamlarını güvenli artır
+    'totalCalories': curNum('totalCalories') + cals,
+    'calories': curNum('calories') + cals,
+
+    'protein_g': curNum('protein_g') + p,
+    'carbs_g': curNum('carbs_g') + c,
+    'fat_g': curNum('fat_g') + f,
+    'fiber_g': curNum('fiber_g') + fib,
+    'sugar_g': curNum('sugar_g') + sug,
+  }, SetOptions(merge: true));
+});
 
                 if (sheetContext.mounted) {
                   Navigator.pop(sheetContext);

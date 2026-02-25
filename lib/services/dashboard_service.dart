@@ -24,11 +24,15 @@ class DashboardService {
 
       if (!snap.exists) break;
 
-      if ((snap.data()?['calories'] ?? 0) > 0) {
-        streak++;
-      } else {
-        break;
-      }
+      final data = snap.data() ?? {};
+final v = (data['totalCalories'] ?? data['calories'] ?? 0);
+final total = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+
+if (total > 0) {
+  streak++;
+} else {
+  break;
+}
     }
 
     return streak;

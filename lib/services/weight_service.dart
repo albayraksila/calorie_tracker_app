@@ -45,6 +45,37 @@ Future<void> addWeight({
   });
 }
 
+Future<void> updateWeight({
+  required String entryId,
+  required double kg,
+}) async {
+  final uid = _uid;
+  if (uid == null) throw Exception("no-auth");
+
+  await _db
+      .collection('users')
+      .doc(uid)
+      .collection('weight_entries')
+      .doc(entryId)
+      .update({
+    'weight_kg': kg,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
+Future<void> deleteWeight({
+  required String entryId,
+}) async {
+  final uid = _uid;
+  if (uid == null) throw Exception("no-auth");
+
+  await _db
+      .collection('users')
+      .doc(uid)
+      .collection('weight_entries')
+      .doc(entryId)
+      .delete();
+}
   /// ✅ Stats ekranı için stream
   Stream<QuerySnapshot<Map<String, dynamic>>> streamEntries({int limit = 20}) {
     final uid = _uid;

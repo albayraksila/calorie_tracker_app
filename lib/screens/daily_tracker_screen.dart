@@ -20,6 +20,249 @@ class DailyTrackerScreen extends StatelessWidget {
     const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
     return "${d.day} ${months[d.month - 1]}";
   }
+  String _dateId(DateTime d) =>
+    "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+
+double _asDouble(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString()) ?? 0;
+}
+Future<void> _applyDailySummaryDelta({
+  required String uid,
+  required DateTime day,
+  required Map<String, double> delta,
+}) async {
+  final ref = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('daily_summaries')
+      .doc(_dateId(day));
+
+  final data = <String, dynamic>{
+    'date': _dateId(day),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+
+  for (final e in delta.entries) {
+    if (e.value == 0) continue;
+    data[e.key] = FieldValue.increment(e.value);
+  }
+
+  await ref.set(data, SetOptions(merge: true));
+}
+
+void _showFoodEntryActions(
+  BuildContext context,
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  DateTime selectedDay,
+) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (_) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text("Düzenle"),
+              onTap: () {
+                Navigator.pop(context);
+                _editFoodEntry(context, uid, doc, selectedDay);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text("Sil"),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteFoodEntry(context, uid, doc, selectedDay);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _updateDailySummary({
+  required String uid,
+  required DateTime date,
+  required double caloriesToAdd,
+}) async {
+  final dateStr =
+      "${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}";
+
+  final docRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('daily_summaries')
+      .doc(dateStr);
+
+  await FirebaseFirestore.instance.runTransaction((transaction) async {
+    final snapshot = await transaction.get(docRef);
+
+    if (snapshot.exists) {
+      final currentCalories =
+          (snapshot.data()?['totalCalories'] ?? 0).toDouble();
+
+      transaction.update(docRef, {
+        'totalCalories': currentCalories + caloriesToAdd,
+      });
+    } else {
+      transaction.set(docRef, {
+        'date': dateStr,
+        'totalCalories': caloriesToAdd,
+      });
+    }
+  });
+}
+
+Future<void> _deleteFoodEntry(
+  BuildContext context,
+  String uid,
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  DateTime selectedDay,
+) async {
+  final data = doc.data();
+
+  final kcal = _asDouble(data['calories']);
+  final protein = _asDouble(data['protein_g']);
+  final carbs = _asDouble(data['carbs_g']);
+  final fat = _asDouble(data['fat_g']);
+  final fiber = _asDouble(data['fiber_g']);
+  final sugar = _asDouble(data['sugar_g']);
+
+  // 1) entry sil
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('food_entries')
+      .doc(doc.id)
+      .delete();
+
+  // 2) summary toplamından düş
+  await _applyDailySummaryDelta(
+    uid: uid,
+    day: selectedDay,
+    delta: {
+      'totalCalories': -kcal,
+      'calories': -kcal,
+      'protein_g': -protein,
+      'carbs_g': -carbs,
+      'fat_g': -fat,
+      'fiber_g': -fiber,
+      'sugar_g': -sugar,
+    },
+  );
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Yemek silindi.")),
+    );
+  }
+}
+
+Future<void> _editFoodEntry(
+  BuildContext context,
+  String uid,
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  DateTime selectedDay,
+) async {
+  final old = doc.data();
+
+  final nameCtrl = TextEditingController(text: (old['name'] ?? '').toString());
+  final kcalCtrl = TextEditingController(text: _asDouble(old['calories']).toStringAsFixed(0));
+  final pCtrl = TextEditingController(text: _asDouble(old['protein_g']).toStringAsFixed(1));
+  final cCtrl = TextEditingController(text: _asDouble(old['carbs_g']).toStringAsFixed(1));
+  final fCtrl = TextEditingController(text: _asDouble(old['fat_g']).toStringAsFixed(1));
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) {
+      return AlertDialog(
+        title: const Text("Yemeği düzenle"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Ad")),
+              TextField(controller: kcalCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Kalori (kcal)")),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: pCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Protein (g)"))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: cCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Karbonhidrat (g)"))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(controller: fCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Yağ (g)")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal")),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("Kaydet")),
+        ],
+      );
+    },
+  );
+
+  if (ok != true) return;
+
+  final newName = nameCtrl.text.trim().isEmpty ? (old['name'] ?? 'Yiyecek').toString() : nameCtrl.text.trim();
+  final newKcal = _asDouble(kcalCtrl.text);
+  final newP = _asDouble(pCtrl.text);
+  final newC = _asDouble(cCtrl.text);
+  final newF = _asDouble(fCtrl.text);
+
+  final oldKcal = _asDouble(old['calories']);
+  final oldP = _asDouble(old['protein_g']);
+  final oldC = _asDouble(old['carbs_g']);
+  final oldF = _asDouble(old['fat_g']);
+
+  // 1) entry update
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('food_entries')
+      .doc(doc.id)
+      .update({
+    'name': newName,
+    'calories': newKcal,
+    'protein_g': newP,
+    'carbs_g': newC,
+    'fat_g': newF,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+
+  // 2) summary delta uygula
+  await _applyDailySummaryDelta(
+    uid: uid,
+    day: selectedDay,
+    delta: {
+      'totalCalories': (newKcal - oldKcal),
+      'calories': (newKcal - oldKcal),
+      'protein_g': (newP - oldP),
+      'carbs_g': (newC - oldC),
+      'fat_g': (newF - oldF),
+    },
+  );
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Yemek güncellendi.")),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -479,6 +722,7 @@ await WeightService().addWeight(
     ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
     : DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
 
+
     return GestureDetector(
    
 
@@ -547,22 +791,30 @@ await WeightService().addWeight(
           final name = (data['name'] ?? 'Yiyecek').toString();
           final kcal = (data['calories'] ?? 0).toString();
 
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.65),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white),
-            ),
-            child: Text(
-              "$name • ${kcal}kcal",
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.black54,
-              ),
-            ),
-          );
+   return Material(
+  color: Colors.transparent, // ✅ InkWell için yüzey
+  child: InkWell(
+    borderRadius: BorderRadius.circular(14),
+    onTap: () {}, // ✅ parent GestureDetector ile gesture çakışmasını azaltır
+    onLongPress: () => _showFoodEntryActions(context, e, selectedDay),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white),
+      ),
+      child: Text(
+        "$name • ${kcal}kcal",
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Colors.black54,
+        ),
+      ),
+    ),
+  ),
+);
         }).toList(),
       ),
       if (entries.length > 4)
