@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/date_range.dart';
 import '../services/weight_service.dart';
-
+import 'activity_tracker_screen.dart';
 
 
 class DailyTrackerScreen extends StatelessWidget {
@@ -28,6 +28,24 @@ double _asDouble(dynamic v) {
   if (v is num) return v.toDouble();
   return double.tryParse(v.toString()) ?? 0;
 }
+
+int? _toInt(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is double) return v.round();
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString());
+}
+
+int? pickInt(Map<String, dynamic>? data, List<String> keys) {
+  if (data == null) return null;
+  for (final k in keys) {
+    final val = _toInt(data[k]);
+    if (val != null) return val;
+  }
+  return null;
+}
+
 Future<void> _applyDailySummaryDelta({
   required String uid,
   required DateTime day,
@@ -346,6 +364,14 @@ Future<void> _editFoodEntry(
               ]) ??
               2100;
 
+final proteinTargetG = pickInt(profileData, [
+  'protein_target_g',
+  'proteinTargetG',
+  'target_protein_g',
+  'proteinTarget',
+  'protein_target',
+]) ?? 160;
+
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: foodStream,
             builder: (context, snapshot) {
@@ -393,11 +419,10 @@ List<QueryDocumentSnapshot<Map<String, dynamic>>> mealDocs(String mealType) {
                       targetCalories: targetCalories,
                       consumedCalories: totalConsumed,
                       proteinG: totalProtein,
+                      proteinTargetG: proteinTargetG,
                       carbsG: totalCarbs,
                       fatG: totalFat,
                     ),
-
-                    const SizedBox(height: 30),
 
                     const Text(
                       "Öğünlerin",
@@ -443,6 +468,8 @@ List<QueryDocumentSnapshot<Map<String, dynamic>>> mealDocs(String mealType) {
                       entries: mealDocs("Atıştırmalık"),
                     ),
                    _buildWeightQuickAddCard(context),
+                   const SizedBox(height: 12),
+_buildActivityQuickAddCard(context, day),
 const SizedBox(height: 14),
                   ],
                 ),
@@ -459,6 +486,7 @@ const SizedBox(height: 14),
     required int targetCalories,
     required int consumedCalories,
     required int proteinG,
+     required int proteinTargetG,
     required int carbsG,
     required int fatG,
   }) {
@@ -466,6 +494,7 @@ const SizedBox(height: 14),
     final percent = targetCalories == 0
         ? 0.0
         : (consumedCalories / targetCalories).clamp(0.0, 1.0);
+
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -522,18 +551,76 @@ const SizedBox(height: 14),
 
           // ✅ Makrolar (tasarım)
           const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _macroPill("Protein", "${proteinG}g"),
-              _macroPill("Karb", "${carbsG}g"),
-              _macroPill("Yağ", "${fatG}g"),
-            ],
-          ),
+     SizedBox(
+  height: 56, // pill yüksekliğine göre ayarla
+  child: ListView(
+    scrollDirection: Axis.horizontal,
+    physics: const BouncingScrollPhysics(),
+    children: [
+      _proteinProgressPill(current: proteinG, target: proteinTargetG),
+      const SizedBox(width: 10),
+      _macroPill("Karb", "${carbsG}g"),
+      const SizedBox(width: 10),
+      _macroPill("Yağ", "${fatG}g"),
+    ],
+  ),
+),
         ],
       ),
     );
   }
+
+  Widget _proteinProgressPill({required int current, required int target}) {
+  final pct = (target <= 0) ? 0.0 : (current / target).clamp(0.0, 1.0);
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.7),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.white),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Protein",
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+            const SizedBox(width: 8),
+           Text(
+  "${current}g / ${target}g",
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 92,
+          height: 6,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: Stack(
+              children: [
+                Container(color: Colors.black.withOpacity(0.06)),
+                FractionallySizedBox(
+                  widthFactor: pct,
+                  child: Container(color: const Color(0xFF2E6F5E)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _macroPill(String label, String value) {
     return Container(
@@ -582,6 +669,7 @@ const SizedBox(height: 14),
   return double.tryParse(cleaned);
 }
   Widget _buildWeightQuickAddCard(BuildContext context) {
+    
   return GestureDetector(
     onTap: () => _openAddWeightSheet(context),
     child: Container(
@@ -610,12 +698,63 @@ const SizedBox(height: 14),
             ),
           ),
           Icon(Icons.add_circle_outline_rounded, color: Colors.black26),
+          
+        ],
+      ),
+    ),
+  );
+  
+}
+
+Widget _buildActivityQuickAddCard(BuildContext context, DateTime day) {
+  return GestureDetector(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ActivityTrackerScreen(
+            selectedDate: day,
+          ),
+        ),
+      );
+    },
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
+        border: Border.all(color: Colors.white),
+      ),
+      child: Row(
+        children: const [
+          Icon(
+             Icons.fitness_center_outlined, // Aktivite ikonu
+            color: Color(0xFF2E6F5E),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Aktivite Ekle",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Icon(Icons.add_circle_outline_rounded, color: Colors.black26),
         ],
       ),
     ),
   );
 }
-
 Future<void> _openAddWeightSheet(BuildContext context) async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) {

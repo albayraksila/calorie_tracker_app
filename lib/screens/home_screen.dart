@@ -16,6 +16,8 @@ import '../services/dashboard_service.dart';
 import '../models/today_summary.dart';
 import '../core/utils/date_range.dart';
 import 'daily_tracker_screen.dart';
+import 'efficiency_screen.dart';
+import '../ui/ui_kit.dart';
 
 import 'package:fl_chart/fl_chart.dart';
 
@@ -31,6 +33,9 @@ class HomeScreen extends StatelessWidget {
   required double fiberG,
   required double sugarG,
 }) {
+  String _fmtKcal(num v) {
+  return "${v.round()} kcal";
+}
   // 1) Kalori uyumu (0..40)
   double calScore;
   if (targetCalories <= 0) {
@@ -68,6 +73,7 @@ final waterScore = (waterMl / safeTarget).clamp(0.0, 1.0) * 20.0;
       .round()
       .clamp(0, 100);
 
+
   // öneri
   String tip = "Bugün gayet iyi gidiyor.";
   if (waterScore < 12) tip = "Su düşük: 1-2 bardak su ekle.";
@@ -77,6 +83,7 @@ final waterScore = (waterMl / safeTarget).clamp(0.0, 1.0) * 20.0;
   if (calScore < 20) tip = "Kalori hedefinden sapma var: porsiyonları dengele.";
 
   return {"score": total, "tip": tip};
+  
 }
 
 
@@ -92,6 +99,7 @@ final int targetCalories = 2000;
 
     final tabs = MainTabScope.of(context);
     void goTab(int index) => tabs?.setIndex(index);
+
 
     // ✅ Home için de DailyTracker gibi hedefi profilden çekiyoruz
     final profileStream = FirebaseFirestore.instance
@@ -235,11 +243,22 @@ final int targetCalories = 2000;
                           targetCalories: targetCalories,
                           consumedCalories: s.calories,
 
+                            burnedCalories: s.burnedCalories,
+
+  proteinTargetG: pickInt(profileData, [
+        'protein_target_g',
+        'proteinTargetG',
+        'target_protein_g',
+        'proteinTarget',
+        'protein_target',
+      ]) ??
+      160,
+
                           proteinG: s.proteinG,
                           carbsG: s.carbsG,
                           fatG: s.fatG,
 
-                          // ✅ lif/şeker: bugün entries’den
+                        
                           fiberG: fiberG,
                           sugarG: sugarG,
                         ),
@@ -365,34 +384,60 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                   sugarG: sugar,
                 );
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => goTab(3),
-                            behavior: HitTestBehavior.opaque,
-                            // ✅ 2.5 sabiti yerine dinamik hedef litre
-                            child: _buildWaterBento(currentLiters, waterTargetLiters),
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => goTab(2),
-                            behavior: HitTestBehavior.opaque,
-                            child: _buildEfficiencyBento(
-                              score: res['score'] as int,
-                              tip: res['tip'] as String,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+              return Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // 🔹 ÜST SATIR (eşit yükseklik)
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // kritik
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => goTab(4), // su tab'ına git
+                behavior: HitTestBehavior.opaque,
+                child: _buildWaterBento(
+                  currentLiters,
+                  waterTargetLiters,
+                ),
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const EfficiencyScreen()),
+  );
+},
+                behavior: HitTestBehavior.opaque,
+                child: _buildEfficiencyBento(
+                  score: res['score'] as int,
+                  tip: res['tip'] as String,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      const SizedBox(height: 15),
+
+      // 🔹 ALT SATIR (tam genişlik)
+      GestureDetector(
+        onTap: () => goTab(2),
+        behavior: HitTestBehavior.opaque,
+        child: _buildEnergyBalanceBento(
+          consumedCalories: s.calories,
+          burnedCalories: s.burnedCalories,
+          targetCalories: targetCalories,
+        ),
+      ),
+    ],
+  ),
+);
               },
             );
           },
@@ -402,33 +447,33 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
   },
 ),
           
-          // 4. MENÜ BAŞLIĞI
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Bugünkü Menün",
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5)),
-                TextButton(
-                  onPressed: () => goTab(1),
-                  child: const Text("Tümü",
-                      style: TextStyle(
-                          color: Color(0xFF128D64),
-                          fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
+          // ════════════════════════════════════════════════════════════
+// home_screen.dart  →  "Bugünkü Menün" bölümü  (REPLACE)
+//
+// Eski: SizedBox(height: 220, ...) → yatay scroll, sabit yükseklik
+// Yeni: Padding + StreamBuilder → dikey liste, AppMealSummaryCard
+//
+// ADIMLAR:
+//  1. ui_kit.dart dosyasını tamamen yeni versiyonla değiştir
+//  2. Aşağıdaki bloğu home_screen.dart'taki şu satırın yerine yapıştır:
+//       // 4. MENÜ BAŞLIĞI   →   // const SizedBox(height: 100),
+// ════════════════════════════════════════════════════════════
 
-          // 5. YEMEK KARTLARI (Yatay Kaydırma)
-         SizedBox(
-  height: 220,
+// 4. MENÜ BAŞLIĞI
+Padding(
+  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+  child: AppSectionTitle(
+    title: 'Bugünkü Menün',
+    actionText: 'Tümü',
+    onAction: () => goTab(1),
+  ),
+),
+
+// 5. YEMEK KARTLARI — dikey liste, AppMealSummaryCard ile
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-    stream: foodStream, // HomeScreen'de zaten tanımlı
+    stream: foodStream,
     builder: (context, snap) {
       if (!snap.hasData) {
         return const Center(child: CircularProgressIndicator());
@@ -436,62 +481,111 @@ StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
 
       final docs = snap.data!.docs;
 
+      // ── Öğüne göre grupla ──
+      const mealOrder = <String>[
+        'Kahvaltı',
+        'Öğle Yemeği',
+        'Akşam Yemeği',
+        'Ara Öğün',
+        'Yiyecek',
+      ];
+
+      IconData _mealIcon(String m) {
+        switch (m) {
+          case 'Kahvaltı':
+            return Icons.breakfast_dining_rounded;
+          case 'Öğle Yemeği':
+            return Icons.lunch_dining_rounded;
+          case 'Akşam Yemeği':
+            return Icons.dinner_dining_rounded;
+          case 'Ara Öğün':
+            return Icons.emoji_food_beverage_rounded;
+          default:
+            return Icons.restaurant_rounded;
+        }
+      }
+
       if (docs.isEmpty) {
-        return ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 15),
+        // boş durum: placeholder göster
+        return Column(
           children: [
-            _buildEmptyMenuCard(context),
+            for (final m in ['Kahvaltı', 'Öğle Yemeği', 'Akşam Yemeği'])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Opacity(
+                  opacity: 0.40,
+                  child: AppMealSummaryCard(
+                    mealType: m,
+                    icon: _mealIcon(m),
+                    totalKcal: 0,
+                    itemNames: const [],
+                    onTap: () => goTab(1),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(
+              'Bugün henüz öğün eklenmedi.',
+              style: TextStyle(
+                color: Colors.black.withOpacity(0.40),
+                fontSize: 13,
+              ),
+            ),
           ],
         );
       }
 
-      // createdAt'e göre en yeni üstte
-      docs.sort((a, b) {
-        final ta = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-        final tb = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(2000);
-        return tb.compareTo(ta);
-      });
+      final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grouped = {};
+      for (final d in docs) {
+        final meal = (d.data()['mealType'] ?? 'Yiyecek').toString();
+        grouped.putIfAbsent(meal, () => []).add(d);
+      }
 
-      // ✅ Öğüne göre grupla
-final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grouped = {};
-for (final d in docs) {
-  final meal = (d.data()['mealType'] ?? 'Yiyecek').toString();
-  grouped.putIfAbsent(meal, () => []).add(d);
-}
+      final meals = grouped.keys.toList()
+        ..sort((a, b) {
+          final ia = mealOrder.indexOf(a);
+          final ib = mealOrder.indexOf(b);
+          if (ia == -1 && ib == -1) return a.compareTo(b);
+          if (ia == -1) return 1;
+          if (ib == -1) return -1;
+          return ia.compareTo(ib);
+        });
 
-// (İsteğe bağlı) sabit sıralama
-const mealOrder = <String>[
-  'Kahvaltı',
-  'Öğle Yemeği',
-  'Akşam Yemeği',
-  'Ara Öğün',
-  'Yiyecek',
-];
-
-final meals = grouped.keys.toList()
-  ..sort((a, b) {
-    final ia = mealOrder.indexOf(a);
-    final ib = mealOrder.indexOf(b);
-    if (ia == -1 && ib == -1) return a.compareTo(b);
-    if (ia == -1) return 1;
-    if (ib == -1) return -1;
-    return ia.compareTo(ib);
-  });
-
-return ListView(
-  scrollDirection: Axis.horizontal,
-  padding: const EdgeInsets.symmetric(horizontal: 15),
-  children: meals.map((mealType) {
-    final entries = grouped[mealType] ?? [];
-    return _buildMealGroupCardLive(context, mealType, entries);
-  }).toList(),
-);
+      return Column(
+        children: [
+          for (final mealType in meals) ...[
+            AppMealSummaryCard(
+              mealType: mealType,
+              icon: _mealIcon(mealType),
+              totalKcal: () {
+                double t = 0;
+                for (final e in grouped[mealType]!) {
+                  final c = e.data()['calories'];
+                  if (c is num) t += c.toDouble();
+                }
+                return t;
+              }(),
+              itemNames: grouped[mealType]!
+                  .map((e) {
+                    final d = e.data();
+                    return (d['name'] ?? d['foodName'] ?? '').toString();
+                  })
+                  .where((n) => n.isNotEmpty)
+                  .toList(),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DailyTrackerScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      );
     },
   ),
 ),
 
-
+const SizedBox(height: 100),
           const SizedBox(height: 100),
         ],
       ),
@@ -500,105 +594,446 @@ return ListView(
 
   // --- YARDIMCI WIDGETLAR ---
 
-  Widget _buildMealGroupCardLive(
-  BuildContext context,
-  String mealType,
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> entries,
-) {
-  // kart toplamı
-  final total = entries.fold<double>(0.0, (sum, e) {
-    final c = e.data()['calories'];
-    final v = (c is num) ? c.toDouble() : double.tryParse(c?.toString() ?? '0') ?? 0.0;
-    return sum + v;
-  });
+ Widget _buildEnergyBalanceBento({
+  required int consumedCalories,
+  required int burnedCalories,
+  required int targetCalories,
+}) {
+  final net = consumedCalories - burnedCalories;
 
-  // kart içi max 6 item gösterelim
-  final shown = entries.take(6).toList();
+  final t = targetCalories > 0 ? targetCalories : 2000;
+  final keepBand = (t * 0.05).round().clamp(120, 240);
+  final strongDeficit = (t * 0.10).round();
+  final strongSurplus = (t * 0.08).round();
 
-  return Container(
-    width: 280,
-    margin: const EdgeInsets.only(right: 12),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.75),
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white.withOpacity(0.9)),
-    ),
+  final diff = net - t;
+
+  String mode;
+  IconData modeIcon;
+  Color modeColor;
+
+  if (diff <= -strongDeficit) {
+    mode = "Yağ yakma";
+    modeIcon = Icons.trending_down_rounded;
+    modeColor = const Color(0xFF2E6F5E);
+  } else if (diff.abs() <= keepBand) {
+    mode = "Koruma";
+    modeIcon = Icons.horizontal_rule_rounded;
+    modeColor = Colors.blueGrey;
+  } else if (diff >= strongSurplus) {
+    mode = "Kilo alma";
+    modeIcon = Icons.trending_up_rounded;
+    modeColor = Colors.deepOrange;
+  } else if (diff < 0) {
+    mode = "Hafif açık";
+    modeIcon = Icons.trending_down_rounded;
+    modeColor = const Color(0xFF2E6F5E);
+  } else {
+    mode = "Hafif fazla";
+    modeIcon = Icons.trending_up_rounded;
+    modeColor = Colors.deepOrange;
+  }
+
+  // Bar: net’in hedef etrafındaki konumu (yaklaşık)
+  // hedef -%20 .. +%20 aralığını görselleştir
+  final minV = t - (t * 0.20);
+  final maxV = t + (t * 0.20);
+  final clamped = net.clamp(minV.round(), maxV.round()).toDouble();
+  final barPct = ((clamped - minV) / (maxV - minV)).clamp(0.0, 1.0);
+
+  Widget _kpi(String label, String value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.75),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.black45),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black45,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  return _buildBentoWrapper(
+    color: const Color(0xFFFFF8E1),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(
+            const Icon(Icons.balance_rounded, color: Colors.brown, size: 26),
+            const SizedBox(width: 10),
+            const Expanded(
               child: Text(
-                mealType,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                "Enerji Dengesi",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.brown,
+                ),
               ),
             ),
-            Text(
-              "${total.round()} kcal",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF128D64),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: modeColor.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(modeIcon, size: 16, color: modeColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    mode,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: modeColor,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: ListView.separated(
-            itemCount: shown.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final data = shown[i].data();
-              final name = (data['name'] ?? 'Yiyecek').toString();
-              final kcal = (data['calories'] ?? 0).toString();
 
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00ACC1).withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white),
-                ),
-                child: Row(
+        const SizedBox(height: 14),
+
+        Text(
+          "$net kcal",
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "Net (Alınan - Yakılan) • Hedef: $t kcal",
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Colors.black45,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Sade bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: barPct,
+            minHeight: 10,
+            backgroundColor: Colors.black12,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        Row(
+          children: [
+            Text(
+              "${(t * 0.8).round()}",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.black45),
+            ),
+            const Spacer(),
+            Text(
+              "${(t * 1.2).round()}",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.black45),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        Row(
+          children: [
+            _kpi("Alınan", "$consumedCalories kcal", Icons.restaurant_outlined),
+            const SizedBox(width: 10),
+            _kpi("Yakılan", "$burnedCalories kcal", Icons.fitness_center_outlined),
+            const SizedBox(width: 10),
+            _kpi("Hedef", "$t kcal", Icons.flag_outlined),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+ Widget _buildMealGroupCardLive(
+  BuildContext context,
+  String mealType,
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> entries,
+) {
+  // Toplam kalori
+  double total = 0;
+  for (final e in entries) {
+    final d = e.data();
+    final c = (d['calories'] ?? 0);
+    if (c is int) total += c.toDouble();
+    if (c is double) total += c;
+  }
+
+  IconData icon;
+  switch (mealType) {
+    case 'Kahvaltı':
+      icon = Icons.breakfast_dining_rounded;
+      break;
+    case 'Öğle Yemeği':
+      icon = Icons.lunch_dining_rounded;
+      break;
+    case 'Akşam Yemeği':
+      icon = Icons.dinner_dining_rounded;
+      break;
+    case 'Ara Öğün':
+      icon = Icons.emoji_food_beverage_rounded;
+      break;
+    default:
+      icon = Icons.restaurant_rounded;
+  }
+
+  final titleColor = const Color(0xFF0B3D2E);
+  final accent = const Color(0xFF128D64);
+
+  // Kart içinde gösterilecek max öğe
+  final showMax = 4;
+  final visible = entries.take(showMax).toList();
+  final remaining = entries.length - visible.length;
+
+  return Container(
+    width: 280,
+    margin: const EdgeInsets.only(right: 14),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const DailyTrackerScreen()),
+),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFEFF8F4),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+            border: Border.all(
+              color: const Color(0xFF128D64).withOpacity(0.10),
+              width: 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: ikon + başlık + kcal badge
+                Row(
                   children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(icon, color: accent),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        name,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        mealType,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: titleColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      "$kcal kcal",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black54,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _fmtKcal(total),
+                        style: TextStyle(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-        ),
-        if (entries.length > 6)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              "+${entries.length - 6} daha",
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: Colors.black38,
-              ),
+
+                const SizedBox(height: 12),
+
+                // İnce ayraç
+                Container(
+                  height: 1,
+                  width: double.infinity,
+                  color: Colors.black.withOpacity(0.06),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Mini liste (chip gibi modern)
+                Expanded(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final e in visible)
+                        _foodChipFromEntry(e, accent),
+
+                      if (remaining > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.black.withOpacity(0.05),
+                            ),
+                          ),
+                          child: Text(
+                            "+$remaining daha",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+              
+              ],
             ),
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Entry -> modern mini chip
+Widget _foodChipFromEntry(
+  QueryDocumentSnapshot<Map<String, dynamic>> entry,
+  Color accent,
+) {
+  final d = entry.data();
+  final name = (d['name'] ?? d['foodName'] ?? 'Yiyecek').toString();
+
+  final calRaw = d['calories'] ?? 0;
+  final cal = (calRaw is int) ? calRaw.toDouble() : (calRaw is double ? calRaw : 0.0);
+
+  return Container(
+    constraints: const BoxConstraints(maxWidth: 240),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.95),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: accent.withOpacity(0.12)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 6),
+        )
+      ],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+              color: Color(0xFF163B2F),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          _fmtKcal(cal),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: Colors.black.withOpacity(0.45),
+            letterSpacing: -0.1,
+          ),
+        ),
       ],
     ),
   );
@@ -634,13 +1069,13 @@ Widget _buildMiniCalorieLineChart(
   String dateId(DateTime d) =>
       "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
 
+final streamEnd = DateTime(now.year, now.month, now.day + 1);
 final stream = FirebaseFirestore.instance
     .collection('users')
     .doc(uid)
-    .collection('daily_summaries')
-    .where('date', isGreaterThanOrEqualTo: dateId(start))
-    .where('date', isLessThanOrEqualTo: dateId(now))
-    .orderBy('date') // ✅ şart
+    .collection('food_entries')
+    .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+    .where('createdAt', isLessThan: Timestamp.fromDate(streamEnd))
     .snapshots();
 
 
@@ -666,15 +1101,13 @@ final stream = FirebaseFirestore.instance
 final map = <String, double>{};
 for (final d in docs) {
   final data = d.data();
-  final date = (data['date'] ?? '').toString();
-
- final raw = (data['totalCalories'] ?? data['calories'] ?? 0);
-final cal = (raw is num) ? raw.toDouble() : double.tryParse(raw.toString()) ?? 0.0;
-
-// daily_summaries zaten gün bazlı tek doc ise biriktirme yerine direkt ata
-map[date] = cal < 0 ? 0 : cal;
+  final ts = data['createdAt'];
+  if (ts is! Timestamp) continue;
+  final date = dateId(ts.toDate().toLocal()); // ← dateId zaten fonksiyon olarak tanımlı
+  final raw = data['calories'] ?? 0;
+  final cal = (raw is num) ? raw.toDouble() : double.tryParse(raw.toString()) ?? 0.0;
+  map[date] = (map[date] ?? 0) + (cal > 0 ? cal : 0); // toplama, negatif yok
 }
-
       final points = <FlSpot>[];
       
       final belowTargetSpots = <FlSpot>[];
@@ -962,6 +1395,9 @@ for (final spot in points) {
     required int targetCalories,
     required int consumedCalories,
 
+      required int burnedCalories,
+  required int proteinTargetG,
+
     required int proteinG,
     required int carbsG,
     required int fatG,
@@ -969,8 +1405,7 @@ for (final spot in points) {
     required int fiberG,
     required int sugarG,
   }) {
-    // ✅ hedefler (şimdilik sabit; istersen profilden de çekebiliriz)
-    const int proteinTarget = 160;
+   
     const int carbsTarget = 215;
     const int fatTarget = 70;
     const int fiberTarget = 30;
@@ -1021,13 +1456,13 @@ for (final spot in points) {
                         percent: pct(consumedCalories, targetCalories),
                       ),
                       const SizedBox(width: 14),
-                      _buildMacroCircle(
-                        "Protein",
-                        "${proteinG}g",
-                        "${proteinTarget}g",
-                        const Color(0xFFFFE0B2).withOpacity(0.3),
-                        percent: pct(proteinG, proteinTarget),
-                      ),
+                     _buildMacroCircle(
+  "Protein",
+  "${proteinG}g",
+  "${proteinTargetG}g",
+  const Color(0xFFFFE0B2).withOpacity(0.3),
+  percent: pct(proteinG, proteinTargetG),
+),
                       const SizedBox(width: 14),
                       _buildMacroCircle(
                         "Karb.",
@@ -1064,6 +1499,24 @@ for (final spot in points) {
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+
+// ✅ Yakılan + Net
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    _buildMiniInlineStat(
+      label: "Yakılan",
+      value: "$burnedCalories kcal",
+      icon: Icons.local_fire_department_rounded,
+    ),
+    _buildMiniInlineStat(
+      label: "Net",
+      value: "${consumedCalories - burnedCalories} kcal",
+      icon: Icons.balance_rounded,
+    ),
+  ],
+),
               ],
             ),
           ),
@@ -1072,6 +1525,39 @@ for (final spot in points) {
     );
   }
 
+Widget _buildMiniInlineStat({
+  required String label,
+  required String value,
+  required IconData icon,
+}) {
+  return Row(
+    children: [
+      Icon(icon, size: 16, color: const Color(0xFF128D64)),
+      const SizedBox(width: 8),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Colors.black45,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
   Widget _buildMacroCircle(
     String label,
     String current,
@@ -1402,42 +1888,112 @@ Widget _buildFoodCardLive(
 }
 
 Widget _buildEmptyMenuCard(BuildContext context) {
-  return GestureDetector(
-    onTap: () => MainTabScope.of(context)?.setIndex(1),
-    child: Container(
-      width: 260,
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(
-            Icons.add_circle_outline_rounded,
-            color: Color(0xFF2E6F5E),
-            size: 28,
+  final accent = const Color(0xFF128D64);
+
+  return Container(
+    width: 280,
+    margin: const EdgeInsets.only(right: 14),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const DailyTrackerScreen()),
+),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFEFF8F4),
+              ],
+            ),
+            border: Border.all(
+              color: accent.withOpacity(0.12),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text(
-            "Bugün henüz bir şey eklemedin",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(Icons.restaurant_rounded, color: accent),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        "Bugün henüz ekleme yok",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: Color(0xFF0B3D2E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Öğün ekleyerek menünü burada görürsün.",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: Colors.black.withOpacity(0.55),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 18, color: accent),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Öğün ekle",
+                        style: TextStyle(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 6),
-          Text(
-            "Bir öğüne dokun ve eklemeye başla.",
-            style: TextStyle(
-              color: Colors.black45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -1627,4 +2183,10 @@ Widget _buildFoodCard(
     ),
   );
 }
+
+  String _fmtKcal(num v) {
+  final n = v.round();
+  return "$n kcal";
+}
+
 }

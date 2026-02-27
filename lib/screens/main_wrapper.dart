@@ -2,11 +2,12 @@
 
 import 'package:calorisense/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
-import '../widgets/main_layout.dart'; // ✅ MainLayout import edildi
+import '../widgets/main_layout.dart'; 
 import 'home_screen.dart';
 import 'daily_tracker_screen.dart';
 import 'stats_screen.dart';
 import 'water_tracker_screen.dart';
+import 'activity_tracker_screen.dart';
 import '../core/navigation/main_tab_scope.dart';
 
 class MainWrapper extends StatefulWidget {
@@ -23,6 +24,7 @@ class _MainWrapperState extends State<MainWrapper> {
   final List<Widget> _pages = [
     const HomeScreen(),
     const DailyTrackerScreen(),
+    const ActivityTrackerScreen(),
     const StatsScreen(),
     const WaterTrackerScreen(),
     const SettingsScreen(),
@@ -32,9 +34,7 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // ✅ MainLayout tüm navigasyonun en dışına eklendi. 
-    // showAppBar: false yapıyoruz çünkü her sayfa (Home, Daily vb.) 
-    // kendi AppBar'ını MainLayout içinden yönetiyor.
+
     return MainTabScope(
   currentIndex: _currentIndex,
   setIndex: (index) => setState(() => _currentIndex = index),
@@ -68,6 +68,7 @@ class _MainWrapperState extends State<MainWrapper> {
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Ana Sayfa"),
             BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: "Günlük"),
+            BottomNavigationBarItem(icon: Icon(Icons.directions_run), label: "Aktivite"),
             BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "İstatistik"),
             BottomNavigationBarItem(icon: Icon(Icons.opacity), label: "Su"),
             BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: "Ayarlar"),

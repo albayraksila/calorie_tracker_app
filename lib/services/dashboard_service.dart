@@ -58,16 +58,25 @@ if (total > 0) {
             isGreaterThanOrEqualTo: Timestamp.fromDate(range.start))
         .where('createdAt', isLessThan: Timestamp.fromDate(range.end));
 
+     final activityQuery = _db 
+        .collection('users')
+        .doc(uid)
+        .collection('activity_entries')
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(range.start))
+        .where('createdAt', isLessThan: Timestamp.fromDate(range.end));
+
     final controller = StreamController<TodaySummary>.broadcast();
 
-    int calories = 0, protein = 0, carbs = 0, fat = 0, waterMl = 0;
+    int calories = 0,burned = 0, protein = 0, carbs = 0, fat = 0, waterMl = 0;
     StreamSubscription? foodSub;
     StreamSubscription? waterSub;
+     StreamSubscription? activitySub;
 
     void emit() {
       if (!controller.isClosed) {
         controller.add(TodaySummary(
           calories: calories,
+          burnedCalories: burned,
           proteinG: protein,
           carbsG: carbs,
           fatG: fat,
@@ -93,7 +102,7 @@ if (total > 0) {
         emit();
       }, onError: controller.addError);
 
-      waterSub = waterQuery.snapshots().listen((snap) {
+       waterSub = waterQuery.snapshots().listen((snap) {
         int w = 0;
         for (final doc in snap.docs) {
           final data = doc.data();
@@ -102,11 +111,23 @@ if (total > 0) {
         waterMl = w;
         emit();
       }, onError: controller.addError);
+
+      activitySub = activityQuery.snapshots().listen((snap) { // ✅
+        double b = 0;
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          final v = data['caloriesBurned'];
+          if (v is num) b += v.toDouble();
+        }
+        burned = b.round();
+        emit();
+      }, onError: controller.addError);
     };
 
     controller.onCancel = () async {
       await foodSub?.cancel();
       await waterSub?.cancel();
+      await activitySub?.cancel(); // ✅
       await controller.close();
     };
 

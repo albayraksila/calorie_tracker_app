@@ -6,9 +6,11 @@ import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 import 'main_wrapper.dart';
 
+
 // 🎨 Tasarım widget'ları
 import '../widgets/pastel_button.dart';
-import '../widgets/main_layout.dart'; // ✅ MainLayout import edildi
+import '../widgets/main_layout.dart'; 
+
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -24,6 +26,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final calorieCtrl = TextEditingController();
 
   bool _saving = false;
+
 
   @override
   void dispose() {
@@ -233,7 +236,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         );
 
                         await ProfileService().saveProfile(profile.withAutoCompleted());
-
+                       
+                     
                         if (!mounted) return;
                         Navigator.pushReplacement(
                           context,
