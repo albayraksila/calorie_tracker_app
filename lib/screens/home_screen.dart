@@ -154,22 +154,29 @@ final int targetCalories = 2000;
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("İyi ki buradasın ✨",
-                        style: TextStyle(
-                            color: Color(0xFF2E6F5E),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600)),
-                    Text(userName,
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5)),
-                  ],
-                ),
+               Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Text("İyi ki buradasın ✨",
+        style: TextStyle(
+            color: Color(0xFF2E6F5E),
+            fontSize: 14,
+            fontWeight: FontWeight.w600)),
+    StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: profileStream,
+      builder: (context, snap) {
+        final profileName = snap.data?.data()?['name']?.toString().trim() ?? '';
+        final displayName = profileName.isNotEmpty ? profileName : userName;
+        return Text(displayName,
+            style: const TextStyle(
+                color: Colors.black,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5));
+      },
+    ),
+  ],
+),
                 FutureBuilder<int>(
   future: _dashboardService.calculateStreak(uid),
   builder: (context, snapshot) {
@@ -634,12 +641,9 @@ const SizedBox(height: 100),
     modeColor = Colors.deepOrange;
   }
 
-  // Bar: net’in hedef etrafındaki konumu (yaklaşık)
-  // hedef -%20 .. +%20 aralığını görselleştir
-  final minV = t - (t * 0.20);
-  final maxV = t + (t * 0.20);
-  final clamped = net.clamp(minV.round(), maxV.round()).toDouble();
-  final barPct = ((clamped - minV) / (maxV - minV)).clamp(0.0, 1.0);
+//bar yaparken hedefin biraz üstünü max yapıyoruz ki barın doluluk oranı daha anlamlı olsun
+final barMax = (t * 1.20).toDouble();
+final barPct = (net.toDouble() / barMax).clamp(0.0, 1.0);
 
   Widget _kpi(String label, String value, IconData icon) {
     return Expanded(
@@ -1158,8 +1162,46 @@ for (final spot in points) {
         points.add(FlSpot((i - baseIndex).toDouble(), y));
       }
 
-      if (points.isEmpty) maxY = 500;
-      if (maxY < 500) maxY = 500;
+      if (points.isEmpty) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.75),
+      borderRadius: BorderRadius.circular(26),
+      border: Border.all(color: Colors.white),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Haftalık Kalori Takibi",
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: Column(
+            children: [
+              Icon(Icons.show_chart_rounded, size: 40, color: Colors.grey.shade300),
+              const SizedBox(height: 8),
+              Text(
+                "Henüz veri yok — öğün ekledikçe grafik oluşur",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade400,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    ),
+  );
+}
+if (maxY < 500) maxY = 500;
 
       const trMonths = [
         "Oca",

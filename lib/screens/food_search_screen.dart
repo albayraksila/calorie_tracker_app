@@ -180,337 +180,245 @@ String _dateId(DateTime d) {
   }
 
   void _showAddFoodBottomSheet(
-    BuildContext context,
-    String foodName,
-    int kcalPer100g,
-    double proteinPer100g,
-    double carbsPer100g,
-    double fatPer100g,
-    double fiberPer100g,
-double sugarPer100g,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final amountController = TextEditingController(text: "100");
-            final unitGramController =
-                TextEditingController(text: "100"); // adet/porsiyon gramı
+  BuildContext context,
+  String foodName,
+  int kcalPer100g,
+  double proteinPer100g,
+  double carbsPer100g,
+  double fatPer100g,
+  double fiberPer100g,
+  double sugarPer100g,
+) {
+  // ✅ Controller ve state builder DIŞINDA tanımlanıyor
+  final amountController = TextEditingController(text: "100");
+  final unitGramController = TextEditingController(text: "100");
+  String unit = "g";
 
-            String unit = "g"; // g | adet | porsiyon
+  double _toDouble(String s) => double.tryParse(s.replaceAll(',', '.')) ?? 0.0;
 
-            double _toDouble(String s) =>
-                double.tryParse(s.replaceAll(',', '.')) ?? 0.0;
-
-            double calcTotalGrams() {
-              final amount = _toDouble(amountController.text.trim());
-              if (unit == "g") return amount;
-              final gramPerUnit = _toDouble(unitGramController.text.trim());
-              return amount * gramPerUnit;
-            }
-String _todayId() {
-  final now = DateTime.now();
-  return "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
-}
-
-            Future<void> addToDiary() async {
-              final user = FirebaseAuth.instance.currentUser;
-              if (user == null) {
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  const SnackBar(
-                      content: Text("Oturum bulunamadı. Tekrar giriş yap.")),
-                );
-                return;
-              }
-
-              try {
-                final totalGrams = calcTotalGrams();
-                final factor = totalGrams / 100.0;
-
-                final calories = (kcalPer100g * factor).round();
-                final proteinG = (proteinPer100g * factor).round();
-                final carbsG = (carbsPer100g * factor).round();
-                final fatG = (fatPer100g * factor).round();
-                final fiberG = (fiberPer100g * factor).round();
-final sugarG = (sugarPer100g * factor).round();
-
-
-                final amountValue = _toDouble(amountController.text.trim());
-                final unitGrams = unit == "g"
-                    ? null
-                    : _toDouble(unitGramController.text.trim());
-
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid)
-                    .collection('food_entries')
-                    .add({
-                  'name': foodName,
-                  'mealType': widget.mealType ?? 'Yiyecek',
-
-                  // kullanıcı girişi
-                  'amount_value': amountValue,
-                  'amount_unit': unit, // g | adet | porsiyon
-                  'unit_grams': unitGrams,
-                  'total_grams': totalGrams,
-
-                  // hesaplanan değerler
-                  'calories': calories,
-                  'protein_g': proteinG,
-                  'carbs_g': carbsG,
-                  'fat_g': fatG,
-                  'fiber_g': fiberG,
-'sugar_g': sugarG,
-
-
-                  'createdAt': Timestamp.fromDate(DateTime(_day.year, _day.month, _day.day, 12)),
-                  'dateId': _dateId(_day), // opsiyonel ama faydalı
-                });
-
-double _asDouble(dynamic v) {
-  if (v == null) return 0.0;
-  if (v is num) return v.toDouble();
-  return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0.0;
-}
-
-final summaryRef = FirebaseFirestore.instance
-    .collection('users')
-    .doc(user.uid)
-    .collection('daily_summaries')
-    .doc(_dateId(_day));
-
-final cals = _asDouble(calories);
-final p = _asDouble(proteinG);
-final c = _asDouble(carbsG);
-final f = _asDouble(fatG);
-final fib = _asDouble(fiberG);
-final sug = _asDouble(sugarG);
-
-await FirebaseFirestore.instance.runTransaction((tx) async {
-  final snap = await tx.get(summaryRef);
-  final cur = snap.data() ?? <String, dynamic>{};
-
-  double curNum(String k) {
-    final v = cur[k];
-    if (v is num) return v.toDouble();
-    return double.tryParse(v?.toString() ?? '0') ?? 0.0;
+  double calcTotalGrams() {
+    final amount = _toDouble(amountController.text.trim());
+    if (unit == "g") return amount;
+    final gramPerUnit = _toDouble(unitGramController.text.trim());
+    return amount * gramPerUnit;
   }
 
-  tx.set(summaryRef, {
-    'date': _dateId(_day),
-    'updatedAt': FieldValue.serverTimestamp(),
+  String _todayId() {
+    final now = DateTime.now();
+    return "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
+  }
 
-    // ✅ gün toplamlarını güvenli artır
-    'totalCalories': curNum('totalCalories') + cals,
-    'calories': curNum('calories') + cals,
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          Future<void> addToDiary() async {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user == null) {
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
+                const SnackBar(content: Text("Oturum bulunamadı. Tekrar giriş yap.")),
+              );
+              return;
+            }
 
-    'protein_g': curNum('protein_g') + p,
-    'carbs_g': curNum('carbs_g') + c,
-    'fat_g': curNum('fat_g') + f,
-    'fiber_g': curNum('fiber_g') + fib,
-    'sugar_g': curNum('sugar_g') + sug,
-  }, SetOptions(merge: true));
-});
+            try {
+              final totalGrams = calcTotalGrams();
+              final factor = totalGrams / 100.0;
 
-                if (sheetContext.mounted) {
-                  Navigator.pop(sheetContext);
-                  ScaffoldMessenger.of(sheetContext).showSnackBar(
-                    const SnackBar(content: Text("Günlüğe eklendi ✅")),
-                  );
+              final calories = (kcalPer100g * factor).round();
+              final proteinG = (proteinPer100g * factor).round();
+              final carbsG = (carbsPer100g * factor).round();
+              final fatG = (fatPer100g * factor).round();
+              final fiberG = (fiberPer100g * factor).round();
+              final sugarG = (sugarPer100g * factor).round();
+
+              final amountValue = _toDouble(amountController.text.trim());
+              final unitGrams = unit == "g" ? null : _toDouble(unitGramController.text.trim());
+
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('food_entries')
+                  .add({
+                'name': foodName,
+                'mealType': widget.mealType ?? 'Yiyecek',
+                'amount_value': amountValue,
+                'amount_unit': unit,
+                'unit_grams': unitGrams,
+                'total_grams': totalGrams,
+                'calories': calories,
+                'protein_g': proteinG,
+                'carbs_g': carbsG,
+                'fat_g': fatG,
+                'fiber_g': fiberG,
+                'sugar_g': sugarG,
+                'createdAt': Timestamp.fromDate(DateTime(_day.year, _day.month, _day.day, 12)),
+                'dateId': _dateId(_day),
+              });
+
+              double _asDouble(dynamic v) {
+                if (v == null) return 0.0;
+                if (v is num) return v.toDouble();
+                return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0.0;
+              }
+
+              final summaryRef = FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('daily_summaries')
+                  .doc(_dateId(_day));
+
+              await FirebaseFirestore.instance.runTransaction((tx) async {
+                final snap = await tx.get(summaryRef);
+                final cur = snap.data() ?? <String, dynamic>{};
+
+                double curNum(String k) {
+                  final v = cur[k];
+                  if (v is num) return v.toDouble();
+                  return double.tryParse(v?.toString() ?? '0') ?? 0.0;
                 }
-              } catch (e) {
-                debugPrint("❌ addToDiary error: $e");
-                if (sheetContext.mounted) {
-                  ScaffoldMessenger.of(sheetContext).showSnackBar(
-                    SnackBar(content: Text("Kayıt eklenemedi: $e")),
-                  );
-                }
+
+                tx.set(summaryRef, {
+                  'date': _dateId(_day),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'totalCalories': curNum('totalCalories') + _asDouble(calories),
+                  'calories': curNum('calories') + _asDouble(calories),
+                  'protein_g': curNum('protein_g') + _asDouble(proteinG),
+                  'carbs_g': curNum('carbs_g') + _asDouble(carbsG),
+                  'fat_g': curNum('fat_g') + _asDouble(fatG),
+                  'fiber_g': curNum('fiber_g') + _asDouble(fiberG),
+                  'sugar_g': curNum('sugar_g') + _asDouble(sugarG),
+                }, SetOptions(merge: true));
+              });
+
+              if (sheetContext.mounted) {
+                Navigator.pop(sheetContext);
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text("Günlüğe eklendi ✅")),
+                );
+              }
+            } catch (e) {
+              debugPrint("❌ addToDiary error: $e");
+              if (sheetContext.mounted) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(content: Text("Kayıt eklenemedi: $e")),
+                );
               }
             }
-Future<void> updateDailySummary(String uid, Map<String, dynamic> entry) async {
-  final now = DateTime.now();
-  final dateId = "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
+          }
 
-  final ref = FirebaseFirestore.instance
-      .collection('users')
-      .doc(uid)
-      .collection('daily_summaries')
-      .doc(dateId);
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFFBFBF9),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
+              ),
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 25),
+                    decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  Text(foodName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text("Miktarı Belirleyin",
+                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 20),
 
-  await FirebaseFirestore.instance.runTransaction((tx) async {
-    final snap = await tx.get(ref);
-
-    int addInt(dynamic v) {
-      if (v == null) return 0;
-      if (v is int) return v;
-      if (v is double) return v.round();
-      return int.tryParse(v.toString()) ?? 0;
-    }
-
-    final newCalories = addInt(entry['calories']);
-    final newProtein = addInt(entry['protein_g']);
-    final newCarbs = addInt(entry['carbs_g']);
-    final newFat = addInt(entry['fat_g']);
-    final newFiber = addInt(entry['fiber_g']);
-    final newSugar = addInt(entry['sugar_g']);
-
-    if (!snap.exists) {
-      tx.set(ref, {
-        "date": dateId,
-        "calories": newCalories,
-        "protein_g": newProtein,
-        "carbs_g": newCarbs,
-        "fat_g": newFat,
-        "fiber_g": newFiber,
-        "sugar_g": newSugar,
-        "water_ml": 0,
-        "completed": false,
-      });
-    } else {
-      tx.update(ref, {
-        "calories": FieldValue.increment(newCalories),
-        "protein_g": FieldValue.increment(newProtein),
-        "carbs_g": FieldValue.increment(newCarbs),
-        "fat_g": FieldValue.increment(newFat),
-        "fiber_g": FieldValue.increment(newFiber),
-        "sugar_g": FieldValue.increment(newSugar),
-      });
-    }
-  });
-}
-
-            return Padding(
-              padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFBFBF9),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
-                ),
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 25),
-                      decoration: BoxDecoration(
-                          color: Colors.black12,
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    Text(foodName,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w900)),
-                    const Text("Miktarı Belirleyin",
-                        style: TextStyle(
-                            color: Colors.grey, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 20),
-
-                    Row(
-                      children: [
-                        const Text("Birim:",
-                            style: TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 12),
-                        DropdownButton<String>(
-                          value: unit,
-                          items: const [
-                            DropdownMenuItem(
-                                value: "g", child: Text("Gram (g)")),
-                            DropdownMenuItem(
-                                value: "adet", child: Text("Adet")),
-                            DropdownMenuItem(
-                                value: "porsiyon", child: Text("Porsiyon")),
-                          ],
-                          onChanged: (v) {
-                            if (v == null) return;
-                            setModalState(() => unit = v);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    if (unit != "g") ...[
-                      TextField(
-                        controller: unitGramController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(
-                          labelText: unit == "adet"
-                              ? "1 adet kaç gram?"
-                              : "1 porsiyon kaç gram?",
-                          labelStyle: const TextStyle(
-                              color: Color(0xFF2E6F5E),
-                              fontWeight: FontWeight.bold),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide.none),
-                          prefixIcon: const Icon(Icons.straighten_outlined,
-                              color: Color(0xFF2E6F5E)),
-                        ),
+                  Row(
+                    children: [
+                      const Text("Birim:", style: TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(width: 12),
+                      DropdownButton<String>(
+                        value: unit,
+                        items: const [
+                          DropdownMenuItem(value: "g", child: Text("Gram (g)")),
+                          DropdownMenuItem(value: "adet", child: Text("Adet")),
+                          DropdownMenuItem(value: "porsiyon", child: Text("Porsiyon")),
+                        ],
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setModalState(() => unit = v); // ✅ artık unit sıfırlanmıyor
+                        },
                       ),
-                      const SizedBox(height: 14),
                     ],
+                  ),
+                  const SizedBox(height: 14),
 
+                  if (unit != "g") ...[
                     TextField(
-                      controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      autofocus: true,
+                      controller: unitGramController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: unit == "g"
-                            ? "Miktar (gram)"
-                            : (unit == "adet"
-                                ? "Miktar (adet)"
-                                : "Miktar (porsiyon)"),
+                        labelText: unit == "adet" ? "1 adet kaç gram?" : "1 porsiyon kaç gram?",
                         labelStyle: const TextStyle(
-                          color: Color(0xFF2E6F5E),
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Color(0xFF2E6F5E), fontWeight: FontWeight.bold),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                        prefixIcon: const Icon(Icons.scale_outlined,
-                            color: Color(0xFF2E6F5E)),
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide.none),
+                        prefixIcon: const Icon(Icons.straighten_outlined, color: Color(0xFF2E6F5E)),
                       ),
                     ),
-                    const SizedBox(height: 30),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E6F5E),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20)),
-                          elevation: 5,
-                        ),
-                        onPressed: addToDiary,
-                        child: const Text("Günlüğe Ekle",
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 14),
                   ],
-                ),
+
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: unit == "g"
+                          ? "Miktar (gram)"
+                          : (unit == "adet" ? "Miktar (adet)" : "Miktar (porsiyon)"),
+                      labelStyle: const TextStyle(
+                          color: Color(0xFF2E6F5E), fontWeight: FontWeight.bold),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none),
+                      prefixIcon: const Icon(Icons.scale_outlined, color: Color(0xFF2E6F5E)),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E6F5E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                        elevation: 5,
+                      ),
+                      onPressed: addToDiary,
+                      child: const Text("Günlüğe Ekle",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 }
